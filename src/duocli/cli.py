@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import re
 import sys
+import time
 
 import click
 from dotenv import load_dotenv
@@ -87,3 +89,79 @@ def list_apps(ctx: click.Context) -> None:
         format_human_list(results)
     else:
         format_json(results)
+
+
+@cli.command("auth-logs")
+@click.option(
+    "--since",
+    default="24h",
+    help="Time window: e.g. 1h, 6h, 7d, 30d. Default: 24h.",
+)
+@click.pass_context
+def auth_logs(ctx: click.Context, since: str) -> None:
+    """Show authentication log events."""
+    backend = get_backend()
+    now_ms = int(time.time() * 1000)
+    delta_ms = _parse_since(since) * 1000
+    mintime = now_ms - delta_ms
+    results = backend.get_authentication_logs(mintime=mintime, maxtime=now_ms)
+
+    if _is_error_list(results):
+        format_error(results[0])
+        sys.exit(2)
+
+    if ctx.obj["human"]:
+        format_human_list(
+            results,
+            columns=["timestamp", "user", "result", "factor", "application", "ip"],
+        )
+    else:
+        format_json(results)
+
+
+@cli.command("admin-logs")
+@click.option(
+    "--since",
+    default="24h",
+    help="Time window: e.g. 1h, 6h, 7d, 30d. Default: 24h.",
+)
+@click.pass_context
+def admin_logs(ctx: click.Context, since: str) -> None:
+    """Show administrator action log events."""
+    backend = get_backend()
+    now_sec = int(time.time())
+    delta_sec = _parse_since(since)
+    mintime = now_sec - delta_sec
+    results = backend.get_administrator_logs(mintime=mintime)
+
+    if _is_error_list(results):
+        format_error(results[0])
+        sys.exit(2)
+
+    if ctx.obj["human"]:
+        format_human_list(
+            results,
+            columns=["timestamp", "admin", "action", "object"],
+        )
+    else:
+        format_json(results)
+
+
+def _parse_since(value: str) -> int:
+    """Parse a human-friendly duration string into seconds.
+
+    Examples: '1h' -> 3600, '7d' -> 604800, '30m' -> 1800
+    """
+    match = re.fullmatch(r"(\d+)\s*([mhd])", value.strip().lower())
+    if not match:
+        raise click.BadParameter(
+            f"Invalid duration '{value}'. Use format like 30m, 6h, or 7d."
+        )
+    amount = int(match.group(1))
+    unit = match.group(2)
+    multipliers = {"m": 60, "h": 3600, "d": 86400}
+    return amount * multipliers[unit]
+
+
+def _is_error_list(results: list[dict]) -> bool:
+    return len(results) == 1 and results[0].get("status") == "error"

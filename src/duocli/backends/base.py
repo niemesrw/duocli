@@ -20,3 +20,15 @@ class DuoBackend(ABC):
     def list_integrations(self) -> list[dict]:
         """List all integrations. Returns list of normalized dicts."""
         ...
+
+    @abstractmethod
+    def get_authentication_logs(
+        self, mintime: int, maxtime: int, **kwargs
+    ) -> list[dict]:
+        """Get authentication log events. Times are unix timestamps in ms."""
+        ...
+
+    @abstractmethod
+    def get_administrator_logs(self, mintime: int) -> list[dict]:
+        """Get administrator action log events. mintime is a unix timestamp in seconds."""
+        ...

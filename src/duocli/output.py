@@ -9,30 +9,48 @@ def format_json(data: dict | list[dict]) -> None:
     print(json.dumps(data, indent=2))
 
 
-def format_human_list(items: list[dict]) -> None:
-    """Write a table of integrations to stdout."""
+_MAX_COL_WIDTH = 60
+
+
+def format_human_list(
+    items: list[dict],
+    columns: list[str] | None = None,
+    max_col_width: int = _MAX_COL_WIDTH,
+) -> None:
+    """Write a table to stdout. Columns default to the keys of the first item."""
     if not items:
-        print("No integrations found.")
+        print("No results found.")
         return
 
-    # Column widths
-    key_w = max(len(r.get("integration_key", "")) for r in items)
-    name_w = max(len(r.get("name", "")) for r in items)
-    type_w = max(len(r.get("type", "")) for r in items)
+    if columns is None:
+        columns = list(items[0].keys())
 
-    key_w = max(key_w, len("KEY"))
-    name_w = max(name_w, len("NAME"))
-    type_w = max(type_w, len("TYPE"))
+    # Compute column widths (capped)
+    widths = {}
+    for col in columns:
+        header_label = col.upper().replace("_", " ")
+        data_width = max(len(_truncate(str(r.get(col, "")), max_col_width)) for r in items)
+        widths[col] = max(min(data_width, max_col_width), len(header_label))
 
-    header = f"{'KEY':<{key_w}}  {'NAME':<{name_w}}  {'TYPE':<{type_w}}"
+    # Header
+    header_parts = [f"{col.upper().replace('_', ' '):<{widths[col]}}" for col in columns]
+    header = "  ".join(header_parts)
     print(header)
     print("-" * len(header))
+
+    # Rows
     for r in items:
-        print(
-            f"{r.get('integration_key', ''):<{key_w}}  "
-            f"{r.get('name', ''):<{name_w}}  "
-            f"{r.get('type', ''):<{type_w}}"
-        )
+        row_parts = [
+            f"{_truncate(str(r.get(col, '')), widths[col]):<{widths[col]}}"
+            for col in columns
+        ]
+        print("  ".join(row_parts))
+
+
+def _truncate(value: str, max_width: int) -> str:
+    if len(value) <= max_width:
+        return value
+    return value[: max_width - 3] + "..."
 
 
 def format_human_single(data: dict) -> None:

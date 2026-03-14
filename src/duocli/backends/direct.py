@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import duo_client
 
 from .base import DuoBackend
@@ -46,3 +48,55 @@ class DirectBackend(DuoBackend):
             }
             for r in results
         ]
+
+    def get_authentication_logs(
+        self, mintime: int, maxtime: int, **kwargs
+    ) -> list[dict]:
+        try:
+            response = self._admin.get_authentication_log(
+                api_version=2, mintime=mintime, maxtime=maxtime, **kwargs
+            )
+        except RuntimeError as exc:
+            return [{"status": "error", "message": str(exc), "code": 50000}]
+        return [
+            {
+                "timestamp": _format_ts_ms(row.get("timestamp")),
+                "user": row.get("user", {}).get("name", ""),
+                "result": row.get("result", ""),
+                "reason": row.get("reason", ""),
+                "factor": row.get("factor", ""),
+                "application": row.get("application", {}).get("name", ""),
+                "ip": row.get("access_device", {}).get("ip", ""),
+            }
+            for row in response.get("authlogs", [])
+        ]
+
+    def get_administrator_logs(self, mintime: int) -> list[dict]:
+        try:
+            results = self._admin.get_administrator_log(mintime=mintime)
+        except RuntimeError as exc:
+            return [{"status": "error", "message": str(exc), "code": 50000}]
+        return [
+            {
+                "timestamp": _format_ts_sec(row.get("timestamp")),
+                "admin": row.get("username", ""),
+                "action": row.get("action", ""),
+                "object": row.get("object", ""),
+                "description": row.get("description", ""),
+            }
+            for row in results
+        ]
+
+
+def _format_ts_ms(ts) -> str:
+    """Format a millisecond unix timestamp to ISO 8601."""
+    if ts is None:
+        return ""
+    return datetime.fromtimestamp(int(ts) / 1000, tz=timezone.utc).isoformat()
+
+
+def _format_ts_sec(ts) -> str:
+    """Format a second unix timestamp to ISO 8601."""
+    if ts is None:
+        return ""
+    return datetime.fromtimestamp(int(ts), tz=timezone.utc).isoformat()

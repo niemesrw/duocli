@@ -45,7 +45,7 @@ class TestFormatHumanList:
     def test_empty_list(self, capsys):
         format_human_list([])
         captured = capsys.readouterr()
-        assert "No integrations found" in captured.out
+        assert "No results found" in captured.out
 
     def test_table_output(self, capsys):
         items = [

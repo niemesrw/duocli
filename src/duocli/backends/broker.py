@@ -17,19 +17,24 @@ class BrokerBackend(DuoBackend):
         self._token = token
 
     def create_integration(self, name: str, integration_type: str) -> dict:
-        raise NotImplementedError(
-            "Broker mode is not yet implemented. Use direct mode with "
-            "DUO_IKEY, DUO_SKEY, and DUO_HOST environment variables."
-        )
+        raise NotImplementedError(_NOT_IMPLEMENTED_MSG)
 
     def delete_integration(self, integration_key: str) -> dict:
-        raise NotImplementedError(
-            "Broker mode is not yet implemented. Use direct mode with "
-            "DUO_IKEY, DUO_SKEY, and DUO_HOST environment variables."
-        )
+        raise NotImplementedError(_NOT_IMPLEMENTED_MSG)
 
     def list_integrations(self) -> list[dict]:
-        raise NotImplementedError(
-            "Broker mode is not yet implemented. Use direct mode with "
-            "DUO_IKEY, DUO_SKEY, and DUO_HOST environment variables."
-        )
+        raise NotImplementedError(_NOT_IMPLEMENTED_MSG)
+
+    def get_authentication_logs(
+        self, mintime: int, maxtime: int, **kwargs
+    ) -> list[dict]:
+        raise NotImplementedError(_NOT_IMPLEMENTED_MSG)
+
+    def get_administrator_logs(self, mintime: int) -> list[dict]:
+        raise NotImplementedError(_NOT_IMPLEMENTED_MSG)
+
+
+_NOT_IMPLEMENTED_MSG = (
+    "Broker mode is not yet implemented. Use direct mode with "
+    "DUO_IKEY, DUO_SKEY, and DUO_HOST environment variables."
+)
