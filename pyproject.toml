@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "duocli"
+version = "0.1.0"
+description = "CLI tool for managing Duo Security integrations"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.9"
+dependencies = [
+    "duo-client>=5.0",
+    "click>=8.0",
+    "python-dotenv>=1.0",
+]
+
+[project.scripts]
+duocli = "duocli.cli:cli"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/duocli"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
