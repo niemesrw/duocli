@@ -7,7 +7,7 @@ class DuoBackend(ABC):
     """Abstract interface for Duo integration operations."""
 
     @abstractmethod
-    def create_integration(self, name: str, integration_type: str) -> dict:
+    def create_integration(self, name: str, integration_type: str, **kwargs) -> dict:
         """Create a new integration. Returns normalized result dict."""
         ...
 

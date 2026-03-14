@@ -16,7 +16,7 @@ class BrokerBackend(DuoBackend):
         self._url = url
         self._token = token
 
-    def create_integration(self, name: str, integration_type: str) -> dict:
+    def create_integration(self, name: str, integration_type: str, **kwargs) -> dict:
         raise NotImplementedError(_NOT_IMPLEMENTED_MSG)
 
     def delete_integration(self, integration_key: str) -> dict:

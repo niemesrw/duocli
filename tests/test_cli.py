@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from unittest.mock import patch
+import json
+from unittest.mock import patch, MagicMock
 
 from click.testing import CliRunner
 
@@ -41,6 +42,25 @@ class TestCliHelp:
         assert result.exit_code == 0
         assert "0.1.0" in result.output
 
+    def test_auth_logs_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["auth-logs", "--help"])
+        assert result.exit_code == 0
+        assert "--since" in result.output
+        assert "--fields" in result.output
+
+    def test_admin_logs_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["admin-logs", "--help"])
+        assert result.exit_code == 0
+        assert "--since" in result.output
+        assert "--fields" in result.output
+
+    def test_schema_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["schema", "--help"])
+        assert result.exit_code == 0
+
 
 class TestCliMissingCredentials:
     """Tests with no Duo credentials — dotenv mocked out, env vars cleared."""
@@ -66,22 +86,201 @@ class TestCliMissingCredentials:
         for var in _DUO_ENV_VARS:
             monkeypatch.delenv(var, raising=False)
         runner = CliRunner()
-        result = runner.invoke(cli, ["delete-app", "--ikey", "DI123"])
+        result = runner.invoke(cli, ["delete-app", "--ikey", "DIAAAAAAAAAAAAAAAAAAA"])
         assert result.exit_code == 1
 
 
 class TestCliMissingArgs:
-    def test_create_app_missing_name(self):
+    def test_create_app_missing_both(self):
         runner = CliRunner()
-        result = runner.invoke(cli, ["create-app", "--type", "websdk"])
-        assert result.exit_code != 0
-
-    def test_create_app_missing_type(self):
-        runner = CliRunner()
-        result = runner.invoke(cli, ["create-app", "--name", "test"])
+        result = runner.invoke(cli, ["create-app"])
         assert result.exit_code != 0
 
     def test_delete_app_missing_ikey(self):
         runner = CliRunner()
         result = runner.invoke(cli, ["delete-app"])
         assert result.exit_code != 0
+
+
+class TestCliValidation:
+    """Test that input validation rejects bad inputs."""
+
+    def test_create_app_rejects_control_char_name(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["create-app", "--name", "test\x00app", "--type", "websdk"])
+        assert result.exit_code != 0
+
+    def test_create_app_rejects_injection_type(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["create-app", "--name", "test", "--type", "websdk?extra=1"])
+        assert result.exit_code != 0
+
+    def test_delete_app_rejects_bad_ikey(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["delete-app", "--ikey", "DI123?fields=all"])
+        assert result.exit_code != 0
+
+    def test_delete_app_rejects_short_ikey(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["delete-app", "--ikey", "DITOOSHORT"])
+        assert result.exit_code != 0
+
+
+class TestCliDryRun:
+    """Test --dry-run mode does not call the API."""
+
+    @patch("duocli.cli.load_dotenv")
+    def test_create_app_dry_run(self, mock_dotenv):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "create-app", "--name", "Test App", "--type", "websdk", "--dry-run"
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["dry_run"] is True
+        assert data["action"] == "create_integration"
+        assert data["params"]["name"] == "Test App"
+        assert data["params"]["type"] == "websdk"
+
+    @patch("duocli.cli.load_dotenv")
+    def test_delete_app_dry_run(self, mock_dotenv):
+        runner = CliRunner()
+        ikey = "DI" + "A" * 18
+        result = runner.invoke(cli, [
+            "delete-app", "--ikey", ikey, "--dry-run"
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["dry_run"] is True
+        assert data["action"] == "delete_integration"
+        assert data["params"]["integration_key"] == ikey
+
+    @patch("duocli.cli.load_dotenv")
+    def test_dry_run_validates_inputs(self, mock_dotenv):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "create-app", "--name", "test\x00bad", "--type", "websdk", "--dry-run"
+        ])
+        assert result.exit_code != 0
+
+
+class TestCliSchema:
+    def test_schema_create_app(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["schema", "create-app"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["command"] == "create-app"
+        param_names = [p["name"] for p in data["params"]]
+        assert "--name" in param_names
+        assert "--type" in param_names
+
+    def test_schema_delete_app(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["schema", "delete-app"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["command"] == "delete-app"
+        param_names = [p["name"] for p in data["params"]]
+        assert "--ikey" in param_names
+
+    def test_schema_list_apps(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["schema", "list-apps"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["command"] == "list-apps"
+
+    def test_schema_unknown_command(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["schema", "nonexistent"])
+        assert result.exit_code != 0
+
+
+class TestCliFields:
+    """Test --fields filtering."""
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_list_apps_fields(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.list_integrations.return_value = [
+            {"integration_key": "DIAAAAAAAAAAAAAAAAA", "name": "App 1", "type": "websdk"},
+        ]
+        mock_get_backend.return_value = mock_backend
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["list-apps", "--fields", "integration_key,name"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert len(data) == 1
+        assert set(data[0].keys()) == {"integration_key", "name"}
+        assert "type" not in data[0]
+
+
+class TestCliJsonPayload:
+    """Test --json payload for create-app."""
+
+    @patch("duocli.cli.load_dotenv")
+    def test_json_dry_run(self, mock_dotenv):
+        runner = CliRunner()
+        payload = '{"name": "Test", "type": "websdk", "enroll_policy": "allow"}'
+        result = runner.invoke(cli, ["create-app", "--json", payload, "--dry-run"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["dry_run"] is True
+        assert data["params"]["name"] == "Test"
+        assert data["params"]["type"] == "websdk"
+        assert data["params"]["enroll_policy"] == "allow"
+
+    def test_json_mutually_exclusive_with_name(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "create-app", "--json", '{"name": "X", "type": "y"}', "--name", "Conflict"
+        ])
+        assert result.exit_code != 0
+
+    @patch("duocli.cli.load_dotenv")
+    def test_json_invalid_json(self, mock_dotenv):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["create-app", "--json", "{bad json}"])
+        assert result.exit_code == 1
+
+    @patch("duocli.cli.load_dotenv")
+    def test_json_missing_required_fields(self, mock_dotenv):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["create-app", "--json", '{"enroll_policy": "allow"}'])
+        assert result.exit_code == 1
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_json_creates_integration(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.create_integration.return_value = {
+            "status": "ok",
+            "integration_key": "DIAAAAAAAAAAAAAAAAA",
+            "secret_key": "secret",
+            "name": "Test",
+            "type": "websdk",
+        }
+        mock_get_backend.return_value = mock_backend
+
+        runner = CliRunner()
+        payload = '{"name": "Test", "type": "websdk"}'
+        result = runner.invoke(cli, ["create-app", "--json", payload])
+        assert result.exit_code == 0
+        mock_backend.create_integration.assert_called_once_with(
+            name="Test", integration_type="websdk"
+        )
+
+
+class TestCliHumanErrors:
+    """Errors should always be JSON even with --human flag."""
+
+    @patch("duocli.cli.load_dotenv")
+    def test_human_mode_error_still_json(self, mock_dotenv, monkeypatch):
+        for var in _DUO_ENV_VARS:
+            monkeypatch.delenv(var, raising=False)
+        runner = CliRunner()
+        result = runner.invoke(cli, ["--human", "list-apps"])
+        assert result.exit_code == 1

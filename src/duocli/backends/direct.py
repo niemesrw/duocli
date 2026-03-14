@@ -13,10 +13,10 @@ class DirectBackend(DuoBackend):
     def __init__(self, ikey: str, skey: str, host: str) -> None:
         self._admin = duo_client.Admin(ikey=ikey, skey=skey, host=host)
 
-    def create_integration(self, name: str, integration_type: str) -> dict:
+    def create_integration(self, name: str, integration_type: str, **kwargs) -> dict:
         try:
             result = self._admin.create_integration(
-                name=name, integration_type=integration_type
+                name=name, integration_type=integration_type, **kwargs
             )
         except RuntimeError as exc:
             return {"status": "error", "message": str(exc), "code": 50000}

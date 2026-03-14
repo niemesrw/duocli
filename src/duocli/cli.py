@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 import sys
 import time
@@ -16,6 +17,7 @@ from duocli.output import (
     format_json,
     warn_secret_key,
 )
+from duocli.validate import validate_integration_key, validate_name, validate_type
 
 
 @click.group()
@@ -29,19 +31,85 @@ def cli(ctx: click.Context, human: bool) -> None:
     ctx.obj["human"] = human
 
 
+class _MutuallyExclusiveOption(click.Option):
+    """Click option that is mutually exclusive with another option."""
+
+    def __init__(self, *args, mutually_exclusive: list[str] | None = None, **kwargs):
+        self._mutually_exclusive = mutually_exclusive or []
+        super().__init__(*args, **kwargs)
+
+    def handle_parse_result(self, ctx, opts, args):
+        current = self.name in opts and opts[self.name] is not None
+        for other in self._mutually_exclusive:
+            if other in opts and opts[other] is not None and current:
+                raise click.UsageError(
+                    f"--{self.name.replace('_', '-')} is mutually exclusive with "
+                    f"--{other.replace('_', '-')}"
+                )
+        return super().handle_parse_result(ctx, opts, args)
+
+
 @cli.command("create-app")
-@click.option("--name", required=True, help="Name for the new integration.")
+@click.option("--name", default=None, help="Name for the new integration.")
 @click.option(
     "--type",
     "integration_type",
-    required=True,
+    default=None,
     help="Integration type (e.g. websdk, adminapi). Passed through to Duo API.",
 )
+@click.option(
+    "--json",
+    "json_payload",
+    default=None,
+    cls=_MutuallyExclusiveOption,
+    mutually_exclusive=["name", "integration_type"],
+    help="JSON payload with all params (mutually exclusive with --name/--type).",
+)
+@click.option("--dry-run", is_flag=True, help="Validate inputs and show what would happen without calling API.")
 @click.pass_context
-def create_app(ctx: click.Context, name: str, integration_type: str) -> None:
+def create_app(
+    ctx: click.Context,
+    name: str | None,
+    integration_type: str | None,
+    json_payload: str | None,
+    dry_run: bool,
+) -> None:
     """Create a new Duo integration."""
+    if json_payload is not None:
+        try:
+            params = json.loads(json_payload)
+        except json.JSONDecodeError as exc:
+            format_error({"status": "error", "message": f"Invalid JSON: {exc}", "code": 10000})
+            sys.exit(1)
+        if not isinstance(params, dict):
+            format_error({"status": "error", "message": "JSON payload must be an object", "code": 10000})
+            sys.exit(1)
+        name = params.pop("name", None)
+        integration_type = params.pop("type", None)
+        extra_kwargs = params
+    else:
+        extra_kwargs = {}
+
+    if not name or not integration_type:
+        format_error({
+            "status": "error",
+            "message": "Both --name and --type are required (or provide them via --json)",
+            "code": 10000,
+        })
+        sys.exit(1)
+
+    validate_name(name)
+    validate_type(integration_type)
+
+    if dry_run:
+        payload = {"dry_run": True, "action": "create_integration", "params": {"name": name, "type": integration_type}}
+        if extra_kwargs:
+            payload["params"].update(extra_kwargs)
+        format_json(payload)
+        return
+
     backend = get_backend()
-    result = backend.create_integration(name=name, integration_type=integration_type)
+    result = backend.create_integration(name=name, integration_type=integration_type, **extra_kwargs)
 
     if result.get("status") == "error":
         format_error(result)
@@ -57,9 +125,16 @@ def create_app(ctx: click.Context, name: str, integration_type: str) -> None:
 
 @cli.command("delete-app")
 @click.option("--ikey", required=True, help="Integration key of the app to delete.")
+@click.option("--dry-run", is_flag=True, help="Validate inputs and show what would happen without calling API.")
 @click.pass_context
-def delete_app(ctx: click.Context, ikey: str) -> None:
+def delete_app(ctx: click.Context, ikey: str, dry_run: bool) -> None:
     """Delete a Duo integration."""
+    validate_integration_key(ikey)
+
+    if dry_run:
+        format_json({"dry_run": True, "action": "delete_integration", "params": {"integration_key": ikey}})
+        return
+
     backend = get_backend()
     result = backend.delete_integration(integration_key=ikey)
 
@@ -74,16 +149,20 @@ def delete_app(ctx: click.Context, ikey: str) -> None:
 
 
 @cli.command("list-apps")
+@click.option("--fields", default=None, help="Comma-separated list of fields to include in output.")
 @click.pass_context
-def list_apps(ctx: click.Context) -> None:
+def list_apps(ctx: click.Context, fields: str | None) -> None:
     """List all Duo integrations."""
     backend = get_backend()
     results = backend.list_integrations()
 
-    # Check if the result is an error (single-element list with error status)
     if len(results) == 1 and results[0].get("status") == "error":
         format_error(results[0])
         sys.exit(2)
+
+    if fields:
+        field_list = [f.strip() for f in fields.split(",")]
+        results = _filter_fields(results, field_list)
 
     if ctx.obj["human"]:
         format_human_list(results)
@@ -97,8 +176,9 @@ def list_apps(ctx: click.Context) -> None:
     default="24h",
     help="Time window: e.g. 1h, 6h, 7d, 30d. Default: 24h.",
 )
+@click.option("--fields", default=None, help="Comma-separated list of fields to include in output.")
 @click.pass_context
-def auth_logs(ctx: click.Context, since: str) -> None:
+def auth_logs(ctx: click.Context, since: str, fields: str | None) -> None:
     """Show authentication log events."""
     backend = get_backend()
     now_ms = int(time.time() * 1000)
@@ -110,10 +190,14 @@ def auth_logs(ctx: click.Context, since: str) -> None:
         format_error(results[0])
         sys.exit(2)
 
+    if fields:
+        field_list = [f.strip() for f in fields.split(",")]
+        results = _filter_fields(results, field_list)
+
     if ctx.obj["human"]:
         format_human_list(
             results,
-            columns=["timestamp", "user", "result", "factor", "application", "ip"],
+            columns=field_list if fields else ["timestamp", "user", "result", "factor", "application", "ip"],
         )
     else:
         format_json(results)
@@ -125,8 +209,9 @@ def auth_logs(ctx: click.Context, since: str) -> None:
     default="24h",
     help="Time window: e.g. 1h, 6h, 7d, 30d. Default: 24h.",
 )
+@click.option("--fields", default=None, help="Comma-separated list of fields to include in output.")
 @click.pass_context
-def admin_logs(ctx: click.Context, since: str) -> None:
+def admin_logs(ctx: click.Context, since: str, fields: str | None) -> None:
     """Show administrator action log events."""
     backend = get_backend()
     now_sec = int(time.time())
@@ -138,20 +223,58 @@ def admin_logs(ctx: click.Context, since: str) -> None:
         format_error(results[0])
         sys.exit(2)
 
+    if fields:
+        field_list = [f.strip() for f in fields.split(",")]
+        results = _filter_fields(results, field_list)
+
     if ctx.obj["human"]:
         format_human_list(
             results,
-            columns=["timestamp", "admin", "action", "object"],
+            columns=field_list if fields else ["timestamp", "admin", "action", "object"],
         )
     else:
         format_json(results)
 
 
-def _parse_since(value: str) -> int:
-    """Parse a human-friendly duration string into seconds.
+@cli.command("schema")
+@click.argument("command_name")
+@click.pass_context
+def schema(ctx: click.Context, command_name: str) -> None:
+    """Show JSON schema describing accepted parameters for a command."""
+    parent = ctx.parent
+    if parent is None:
+        format_error({"status": "error", "message": "No parent context", "code": 10000})
+        sys.exit(1)
 
-    Examples: '1h' -> 3600, '7d' -> 604800, '30m' -> 1800
-    """
+    cmd = cli.get_command(ctx, command_name)
+    if cmd is None:
+        format_error({"status": "error", "message": f"Unknown command: {command_name}", "code": 10000})
+        sys.exit(1)
+
+    params = []
+    for param in cmd.params:
+        if isinstance(param, click.Option):
+            param_info = {
+                "name": param.opts[0] if param.opts else param.name,
+                "type": param.type.name,
+                "required": param.required,
+            }
+            if param.is_flag:
+                param_info["type"] = "flag"
+            try:
+                if param.default is not None and param.default != () and not param.required:
+                    param_info["default"] = param.default
+            except (TypeError, AttributeError):
+                pass
+            if param.help:
+                param_info["help"] = param.help
+            params.append(param_info)
+
+    format_json({"command": command_name, "params": params})
+
+
+def _parse_since(value: str) -> int:
+    """Parse a human-friendly duration string into seconds."""
     match = re.fullmatch(r"(\d+)\s*([mhd])", value.strip().lower())
     if not match:
         raise click.BadParameter(
@@ -165,3 +288,8 @@ def _parse_since(value: str) -> int:
 
 def _is_error_list(results: list[dict]) -> bool:
     return len(results) == 1 and results[0].get("status") == "error"
+
+
+def _filter_fields(items: list[dict], fields: list[str]) -> list[dict]:
+    """Filter each item to only include the specified fields."""
+    return [{k: item.get(k, "") for k in fields} for item in items]
