@@ -12,7 +12,7 @@ export DUO_HOST=api-XXXXXXXX.duosecurity.com
 
 # Run
 uv run duo create-app --name "My App" --type websdk
-uv run duo list-apps --human
+uv run duo --human list-apps
 
 # Tests
 uv run pytest tests/ -v
@@ -38,6 +38,7 @@ All commands in `cli.py` follow: validate inputs → check `--dry-run` → `get_
 - **Success**: JSON to stdout (default) or human-readable table/key-value with `--human`
 - **Errors**: Always JSON to stdout + diagnostic to stderr, even with `--human`
 - **Exit codes**: `0` success, `1` input/validation/credential error, `2` API error
+- **`--human` goes before the subcommand**: `uv run duo --human list-apps` (not after)
 
 ## Key conventions
 
@@ -47,6 +48,7 @@ All commands in `cli.py` follow: validate inputs → check `--dry-run` → `get_
 - **Type passthrough** — no client-side enum validation on Duo types; extra kwargs forwarded to SDK
 - **update-app key allowlist** — `_VALID_UPDATE_KEYS` frozenset; unknown keys → exit(1) with code 10000
 - **Normalized flat responses** — backends reshape SDK dicts to a standard flat structure with safe defaults
+- **Never edit `.env` directly** — use `.env.example` as template; hook blocks `.env` edits
 
 ## Testing
 
@@ -63,6 +65,8 @@ def test_something(mock_backend, mock_dotenv):
 ```
 
 **Test ordering per command**: help → missing args → validation → dry-run → success → error → fields
+
+**Run tests for a single command**: `uv run pytest tests/test_cli.py -k "auth_logs" -v`
 
 ## File map
 
@@ -82,6 +86,23 @@ tests/
 ├── test_output.py           # Output formatter tests
 ├── test_backend_selection.py # Backend selection logic
 └── test_validate.py         # Input validator tests
+
+templates/                   # Secret store IaC templates
+├── azure-keyvault/          # Bicep + wrapper
+├── aws-secrets-manager/     # CDK (TypeScript) + wrapper
+├── gcp-secret-manager/      # Terraform + wrapper
+└── 1password/               # op CLI + wrapper
+
+.claude/
+├── settings.json            # Hooks: auto-test on edit, block .env edits
+├── skills/
+│   ├── new-command/         # Scaffold a new CLI command end-to-end
+│   ├── test-command/        # Run tests for a specific command by name
+│   ├── duo-audit/           # Investigate auth logs and activity
+│   ├── duo-apps/            # Manage Duo integrations
+│   └── duo-health/          # Account overview, policies, stats
+└── agents/
+    └── security-reviewer.md # Review credential handling and validation
 ```
 
 ## Adding a new command
@@ -92,3 +113,21 @@ tests/
 4. Add Click command in `cli.py` — follow validate → dry-run → backend → error check → format pattern
 5. Add tests in `test_cli.py` — help, validation, dry-run, success, error cases
 6. Commit
+
+Or use the `/new-command` skill for a guided walkthrough.
+
+## Claude Code automations
+
+**Hooks** (auto-run on tool use):
+- PostToolUse: runs `pytest -x -q` when any `.py` file is edited
+- PreToolUse: blocks edits to `.env` files
+
+**Skills** (invoke with `/skill-name` or auto-triggered):
+- `/new-command` — scaffold a new CLI command
+- `/test-command` — run tests for a specific command
+- `duo-audit` — investigate auth logs, admin activity, trust monitor
+- `duo-apps` — create, list, update, delete integrations
+- `duo-health` — account summary, policies, auth stats
+
+**Agents** (spawn for specialized review):
+- `security-reviewer` — reviews credential handling, validation, and secret store templates
