@@ -52,3 +52,8 @@ class DuoBackend(ABC):
     def list_policies(self) -> list[dict]:
         """List all policies. Returns list of normalized dicts."""
         ...
+
+    @abstractmethod
+    def get_policy(self, policy_key: str) -> dict:
+        """Get a single policy by key. Returns normalized result dict."""
+        ...

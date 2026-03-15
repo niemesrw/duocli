@@ -298,6 +298,29 @@ def list_policies(ctx: click.Context, fields: str | None) -> None:
     _output_list(ctx, results, fields)
 
 
+@cli.command("get-policy")
+@click.option("--id", "policy_id", required=True, help="Policy key to retrieve.")
+@click.option("--fields", default=None, help="Comma-separated list of fields to include in output.")
+@click.pass_context
+def get_policy(ctx: click.Context, policy_id: str, fields: str | None) -> None:
+    """Get details of a single Duo policy."""
+    backend = get_backend()
+    result = backend.get_policy(policy_key=policy_id)
+
+    if result.get("status") == "error":
+        format_error(result)
+        sys.exit(2)
+
+    if fields:
+        field_list = [f.strip() for f in fields.split(",")]
+        result = _filter_fields_single(result, field_list)
+
+    if ctx.obj["human"]:
+        format_human_single(result)
+    else:
+        format_json(result)
+
+
 @cli.command("schema")
 @click.argument("command_name")
 @click.pass_context

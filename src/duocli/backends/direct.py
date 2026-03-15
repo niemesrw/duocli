@@ -117,6 +117,13 @@ class DirectBackend(DuoBackend):
             for p in results
         ]
 
+    def get_policy(self, policy_key: str) -> dict:
+        try:
+            result = self._admin.get_policy_v2(policy_key)
+        except RuntimeError as exc:
+            return {"status": "error", "message": str(exc), "code": 50000}
+        return result
+
     def get_administrator_logs(self, mintime: int) -> list[dict]:
         try:
             results = self._admin.get_administrator_log(mintime=mintime)

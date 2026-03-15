@@ -45,6 +45,9 @@ class BrokerBackend(DuoBackend):
     def list_policies(self) -> list[dict]:
         raise NotImplementedError(_NOT_IMPLEMENTED_MSG)
 
+    def get_policy(self, policy_key: str) -> dict:
+        raise NotImplementedError(_NOT_IMPLEMENTED_MSG)
+
 
 _NOT_IMPLEMENTED_MSG = (
     "Broker mode is not yet implemented. Use direct mode with "
