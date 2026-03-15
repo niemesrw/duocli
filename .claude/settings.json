@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "filepath=\"$CLAUDE_FILE_PATH\"; if echo \"$filepath\" | grep -qE '\\.(py)$'; then cd /Users/ryan/dev/duocli && uv run pytest tests/ -x -q 2>&1 | tail -5; fi"
+            "command": "filepath=\"$CLAUDE_FILE_PATH\"; if echo \"$filepath\" | grep -qE '\\.(py)$'; then uv run pytest tests/ -x -q 2>&1 | tail -5; fi"
           }
         ]
       }

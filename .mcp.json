@@ -3,7 +3,7 @@
     "duocli": {
       "command": "uv",
       "args": ["run", "python", "-m", "duocli.mcp_server"],
-      "cwd": "/Users/ryan/dev/duocli"
+      "cwd": "."
     }
   }
 }
