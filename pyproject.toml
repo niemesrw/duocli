@@ -8,11 +8,12 @@ version = "0.1.0"
 description = "CLI tool for managing Duo Security integrations"
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "duo-client>=5.0",
     "click>=8.0",
     "python-dotenv>=1.0",
+    "fastmcp>=2.0",
 ]
 
 [project.scripts]
