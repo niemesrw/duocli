@@ -162,6 +162,67 @@ uv run pytest tests/ -v
 
 To add a new command, see [CLAUDE.md](CLAUDE.md#adding-a-new-command) or use the `/new-command` Claude Code skill.
 
+## MCP Server
+
+duocli includes a read-only [MCP server](https://modelcontextprotocol.io/) that lets AI assistants query your Duo tenant directly. Available tools: `list_apps`, `get_app`, `info_summary`, `auth_logs`, `admin_logs`, `auth_stats`, `list_policies`.
+
+### Claude Code
+
+Already configured — the `.mcp.json` in this repo auto-connects. Just open the project and the `mcp__duocli__*` tools are available.
+
+### Claude Desktop
+
+Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "duocli": {
+      "command": "uv",
+      "args": ["run", "python", "-m", "duocli.mcp_server"],
+      "cwd": "/path/to/duocli",
+      "env": {
+        "DUO_IKEY": "your_integration_key",
+        "DUO_SKEY": "your_secret_key",
+        "DUO_HOST": "api-XXXXXXXX.duosecurity.com"
+      }
+    }
+  }
+}
+```
+
+### ChatGPT (Developer Mode)
+
+ChatGPT requires an HTTP/SSE server (not stdio). Run the MCP server in SSE mode:
+
+```bash
+# Start the server on port 8080
+cd /path/to/duocli
+uv run fastmcp run src/duocli/mcp_server.py --transport sse --port 8080
+```
+
+Then in ChatGPT:
+
+1. Enable **Developer Mode** (Settings → Apps & Connectors → Advanced Settings)
+2. Click **Create app**
+3. Enter the server URL: `http://localhost:8080/sse`
+4. Set authentication to **None** (credentials are in the server's env vars)
+5. Select the tools you want to enable
+
+> **Note**: ChatGPT must be able to reach the server URL. For local development, the server and ChatGPT Desktop must be on the same machine. For remote access, deploy behind a reverse proxy with authentication.
+
+### Other MCP Clients (VS Code, Cursor, Windsurf)
+
+Use the same stdio config as Claude Desktop — add to your client's MCP settings:
+
+```json
+{
+  "command": "uv",
+  "args": ["run", "python", "-m", "duocli.mcp_server"],
+  "cwd": "/path/to/duocli"
+}
+```
+
 ## Claude Code Skills
 
 This repo ships with [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skills in `.claude/` that activate automatically when you work in this project:
