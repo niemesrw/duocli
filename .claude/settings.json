@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "filepath=\"$CLAUDE_FILE_PATH\"; if echo \"$filepath\" | grep -qE '\\.(py)$'; then cd /Users/ryan/dev/duocli && uv run pytest tests/ -x -q 2>&1 | tail -5; fi"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if echo \"$CLAUDE_TOOL_INPUT\" | grep -qE '\\.env\"'; then echo 'BLOCK: Do not edit .env files — use .env.example for templates'; exit 1; fi"
+          }
+        ]
+      }
+    ]
+  }
+}
