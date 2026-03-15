@@ -1,0 +1,12 @@
+project_id = "your-gcp-project-id"
+
+secret_admin_member = "user:admin@example.com"
+
+secret_reader_members = [
+  "user:alice@example.com",
+  "user:bob@example.com",
+]
+
+# Set via environment variable to avoid storing in file:
+#   export TF_VAR_duo_secret_json='{"DUO_IKEY":"...","DUO_SKEY":"...","DUO_HOST":"..."}'
+duo_secret_json = ""

@@ -9,3 +9,7 @@ templates/**/parameters.json
 templates/**/node_modules/
 templates/**/cdk.out/
 templates/**/package-lock.json
+templates/**/.terraform/
+templates/**/.terraform.lock.hcl
+templates/**/terraform.tfstate*
+templates/**/terraform.tfvars
