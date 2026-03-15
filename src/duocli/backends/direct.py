@@ -153,13 +153,13 @@ class DirectBackend(DuoBackend):
                         break
                     events.append({
                         "timestamp": item.get("ts", ""),
-                        "action": item.get("action", {}).get("name", ""),
-                        "actor": item.get("actor", {}).get("name", ""),
-                        "actor_type": item.get("actor", {}).get("type", ""),
-                        "target": item.get("target", {}).get("name", ""),
-                        "target_type": item.get("target", {}).get("type", ""),
-                        "application": item.get("application", {}).get("name", ""),
-                        "ip": item.get("access_device", {}).get("ip", {}).get("address", ""),
+                        "action": (item.get("action") or {}).get("name", ""),
+                        "actor": (item.get("actor") or {}).get("name", ""),
+                        "actor_type": (item.get("actor") or {}).get("type", ""),
+                        "target": (item.get("target") or {}).get("name", ""),
+                        "target_type": (item.get("target") or {}).get("type", ""),
+                        "application": (item.get("application") or {}).get("name", ""),
+                        "ip": (item.get("access_device") or {}).get("ip") or "",
                     })
                 next_offset = response.get("metadata", {}).get("next_offset")
                 if not next_offset:
