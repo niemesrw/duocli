@@ -20,6 +20,16 @@ from duocli.output import (
 from duocli.validate import validate_integration_key, validate_name, validate_type
 
 
+_VALID_UPDATE_KEYS = frozenset({
+    "name", "visual_style", "greeting", "notes", "enroll_policy",
+    "username_normalization_policy", "adminapi_admins", "adminapi_info",
+    "adminapi_integrations", "adminapi_read_log", "adminapi_read_resource",
+    "adminapi_settings", "adminapi_write_resource", "reset_secret_key",
+    "trusted_device_days", "ip_whitelist", "ip_whitelist_enroll_policy",
+    "groups_allowed", "self_service_allowed", "sso", "user_access",
+})
+
+
 @click.group()
 @click.option("--human", is_flag=True, help="Human-readable output instead of JSON.")
 @click.version_option(version=__version__, prog_name="duocli")
@@ -319,6 +329,53 @@ def get_policy(ctx: click.Context, policy_id: str, fields: str | None) -> None:
         format_human_single(result)
     else:
         format_json(result)
+
+
+@cli.command("update-app")
+@click.option("--ikey", required=True, help="Integration key of the app to update.")
+@click.option("--json", "json_payload", required=True, help="JSON payload with update params.")
+@click.option("--dry-run", is_flag=True, help="Validate inputs and show what would happen without calling API.")
+@click.pass_context
+def update_app(ctx: click.Context, ikey: str, json_payload: str, dry_run: bool) -> None:
+    """Update a Duo integration."""
+    validate_integration_key(ikey)
+
+    try:
+        params = json.loads(json_payload)
+    except json.JSONDecodeError as exc:
+        format_error({"status": "error", "message": f"Invalid JSON: {exc}", "code": 10000})
+        sys.exit(1)
+    if not isinstance(params, dict) or not params:
+        format_error({"status": "error", "message": "JSON payload must be a non-empty object", "code": 10000})
+        sys.exit(1)
+
+    unknown_keys = set(params.keys()) - _VALID_UPDATE_KEYS
+    if unknown_keys:
+        format_error({
+            "status": "error",
+            "message": f"Unsupported update keys: {', '.join(sorted(unknown_keys))}",
+            "code": 10000,
+        })
+        sys.exit(1)
+
+    if dry_run:
+        format_json({"dry_run": True, "action": "update_integration", "params": {"integration_key": ikey, **params}})
+        return
+
+    backend = get_backend()
+    result = backend.update_integration(integration_key=ikey, **params)
+
+    if result.get("status") == "error":
+        format_error(result)
+        sys.exit(2)
+
+    if ctx.obj["human"]:
+        format_human_single(result)
+    else:
+        format_json(result)
+
+    if "reset_secret_key" in params:
+        warn_secret_key()
 
 
 @cli.command("schema")

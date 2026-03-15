@@ -124,6 +124,18 @@ class DirectBackend(DuoBackend):
             return {"status": "error", "message": str(exc), "code": 50000}
         return result
 
+    def update_integration(self, integration_key: str, **kwargs) -> dict:
+        try:
+            result = self._admin.update_integration(integration_key, **kwargs)
+        except RuntimeError as exc:
+            return {"status": "error", "message": str(exc), "code": 50000}
+        return {
+            "status": "ok",
+            "integration_key": result.get("integration_key", ""),
+            "name": result.get("name", ""),
+            "type": result.get("type", ""),
+        }
+
     def get_administrator_logs(self, mintime: int) -> list[dict]:
         try:
             results = self._admin.get_administrator_log(mintime=mintime)

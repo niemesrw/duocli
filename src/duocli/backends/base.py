@@ -57,3 +57,8 @@ class DuoBackend(ABC):
     def get_policy(self, policy_key: str) -> dict:
         """Get a single policy by key. Returns normalized result dict."""
         ...
+
+    @abstractmethod
+    def update_integration(self, integration_key: str, **kwargs) -> dict:
+        """Update an integration. Returns normalized result dict."""
+        ...
