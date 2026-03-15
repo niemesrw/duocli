@@ -97,11 +97,12 @@ class DirectBackend(DuoBackend):
     def get_auth_stats(self, mintime: int, maxtime: int) -> dict:
         try:
             result = self._admin.get_authentication_attempts(
-                mintime=mintime, maxtime=maxtime
+                mintime=str(mintime), maxtime=str(maxtime)
             )
         except RuntimeError as exc:
             return {"status": "error", "message": str(exc), "code": 50000}
-        return {k.lower(): v for k, v in result.items()}
+        attempts = result.get("authentication_attempts", result)
+        return {k.lower(): v for k, v in attempts.items()}
 
     def list_policies(self) -> list[dict]:
         try:
@@ -152,7 +153,7 @@ class DirectBackend(DuoBackend):
                         break
                     events.append({
                         "timestamp": item.get("ts", ""),
-                        "action": item.get("action", ""),
+                        "action": item.get("action", {}).get("name", ""),
                         "actor": item.get("actor", {}).get("name", ""),
                         "actor_type": item.get("actor", {}).get("type", ""),
                         "target": item.get("target", {}).get("name", ""),
