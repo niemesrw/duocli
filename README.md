@@ -162,6 +162,20 @@ uv run pytest tests/ -v
 
 To add a new command, see [CLAUDE.md](CLAUDE.md#adding-a-new-command) or use the `/new-command` Claude Code skill.
 
+## Claude Code Skills
+
+This repo ships with [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skills in `.claude/` that activate automatically when you work in this project:
+
+| Skill | Trigger | What it does |
+|-------|---------|-------------|
+| `duo-audit` | "who logged in", "check auth logs" | Guides investigation of auth logs, admin activity, trust monitor |
+| `duo-apps` | "create an app", "list integrations" | Walks through app CRUD operations |
+| `duo-health` | "account summary", "check policies" | Runs health checks and policy reviews |
+| `/new-command` | User-invoked | Scaffolds a new CLI command end-to-end |
+| `/test-command` | User-invoked | Runs tests for a specific command by name |
+
+Hooks auto-run `pytest` on Python file edits and block accidental `.env` modifications. A `security-reviewer` agent is available for reviewing credential handling changes.
+
 ## License
 
 MIT
