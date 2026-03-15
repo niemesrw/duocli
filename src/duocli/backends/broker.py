@@ -25,6 +25,9 @@ class BrokerBackend(DuoBackend):
     def list_integrations(self) -> list[dict]:
         raise NotImplementedError(_NOT_IMPLEMENTED_MSG)
 
+    def get_integration(self, integration_key: str) -> dict:
+        raise NotImplementedError(_NOT_IMPLEMENTED_MSG)
+
     def get_authentication_logs(
         self, mintime: int, maxtime: int, **kwargs
     ) -> list[dict]:

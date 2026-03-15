@@ -22,6 +22,11 @@ class DuoBackend(ABC):
         ...
 
     @abstractmethod
+    def get_integration(self, integration_key: str) -> dict:
+        """Get a single integration by key. Returns normalized result dict."""
+        ...
+
+    @abstractmethod
     def get_authentication_logs(
         self, mintime: int, maxtime: int, **kwargs
     ) -> list[dict]:

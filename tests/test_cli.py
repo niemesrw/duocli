@@ -274,6 +274,74 @@ class TestCliJsonPayload:
         )
 
 
+class TestGetApp:
+    def test_get_app_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["get-app", "--help"])
+        assert result.exit_code == 0
+        assert "--ikey" in result.output
+        assert "--fields" in result.output
+
+    def test_get_app_rejects_bad_ikey(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["get-app", "--ikey", "BADKEY"])
+        assert result.exit_code != 0
+
+    @patch("duocli.cli.load_dotenv")
+    def test_get_app_dry_run(self, mock_dotenv):
+        runner = CliRunner()
+        ikey = "DI" + "A" * 18
+        result = runner.invoke(cli, ["get-app", "--ikey", ikey, "--dry-run"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["dry_run"] is True
+        assert data["params"]["integration_key"] == ikey
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_get_app_success(self, mock_get_backend, mock_dotenv):
+        ikey = "DI" + "A" * 18
+        mock_backend = MagicMock()
+        mock_backend.get_integration.return_value = {
+            "integration_key": ikey,
+            "name": "Test App",
+            "type": "websdk",
+            "status": "active",
+            "policy_key": "",
+            "notes": "",
+            "enroll_policy": "",
+            "groups_allowed": [],
+        }
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["get-app", "--ikey", ikey])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["name"] == "Test App"
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_get_app_fields(self, mock_get_backend, mock_dotenv):
+        ikey = "DI" + "A" * 18
+        mock_backend = MagicMock()
+        mock_backend.get_integration.return_value = {
+            "integration_key": ikey,
+            "name": "Test App",
+            "type": "websdk",
+            "status": "active",
+            "policy_key": "",
+            "notes": "",
+            "enroll_policy": "",
+            "groups_allowed": [],
+        }
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["get-app", "--ikey", ikey, "--fields", "name,type"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert set(data.keys()) == {"name", "type"}
+
+
 class TestCliHumanErrors:
     """Errors should always be JSON even with --human flag."""
 

@@ -156,18 +156,41 @@ def list_apps(ctx: click.Context, fields: str | None) -> None:
     backend = get_backend()
     results = backend.list_integrations()
 
-    if len(results) == 1 and results[0].get("status") == "error":
+    if _is_error_list(results):
         format_error(results[0])
+        sys.exit(2)
+
+    _output_list(ctx, results, fields)
+
+
+@cli.command("get-app")
+@click.option("--ikey", required=True, help="Integration key of the app to retrieve.")
+@click.option("--fields", default=None, help="Comma-separated list of fields to include in output.")
+@click.option("--dry-run", is_flag=True, help="Validate inputs and show what would happen without calling API.")
+@click.pass_context
+def get_app(ctx: click.Context, ikey: str, fields: str | None, dry_run: bool) -> None:
+    """Get details of a single Duo integration."""
+    validate_integration_key(ikey)
+
+    if dry_run:
+        format_json({"dry_run": True, "action": "get_integration", "params": {"integration_key": ikey}})
+        return
+
+    backend = get_backend()
+    result = backend.get_integration(integration_key=ikey)
+
+    if result.get("status") == "error":
+        format_error(result)
         sys.exit(2)
 
     if fields:
         field_list = [f.strip() for f in fields.split(",")]
-        results = _filter_fields(results, field_list)
+        result = _filter_fields_single(result, field_list)
 
     if ctx.obj["human"]:
-        format_human_list(results)
+        format_human_single(result)
     else:
-        format_json(results)
+        format_json(result)
 
 
 @cli.command("auth-logs")
@@ -190,17 +213,8 @@ def auth_logs(ctx: click.Context, since: str, fields: str | None) -> None:
         format_error(results[0])
         sys.exit(2)
 
-    if fields:
-        field_list = [f.strip() for f in fields.split(",")]
-        results = _filter_fields(results, field_list)
-
-    if ctx.obj["human"]:
-        format_human_list(
-            results,
-            columns=field_list if fields else ["timestamp", "user", "result", "factor", "application", "ip"],
-        )
-    else:
-        format_json(results)
+    _output_list(ctx, results, fields,
+                 default_columns=["timestamp", "user", "result", "factor", "application", "ip"])
 
 
 @cli.command("admin-logs")
@@ -223,17 +237,8 @@ def admin_logs(ctx: click.Context, since: str, fields: str | None) -> None:
         format_error(results[0])
         sys.exit(2)
 
-    if fields:
-        field_list = [f.strip() for f in fields.split(",")]
-        results = _filter_fields(results, field_list)
-
-    if ctx.obj["human"]:
-        format_human_list(
-            results,
-            columns=field_list if fields else ["timestamp", "admin", "action", "object"],
-        )
-    else:
-        format_json(results)
+    _output_list(ctx, results, fields,
+                 default_columns=["timestamp", "admin", "action", "object"])
 
 
 @cli.command("schema")
@@ -273,6 +278,28 @@ def schema(ctx: click.Context, command_name: str) -> None:
     format_json({"command": command_name, "params": params})
 
 
+def _output_list(
+    ctx: click.Context,
+    results: list[dict],
+    fields: str | None,
+    default_columns: list[str] | None = None,
+) -> None:
+    """Filter fields and format list output (JSON or human table)."""
+    if fields:
+        columns = [f.strip() for f in fields.split(",")]
+        results = _filter_fields(results, columns)
+    else:
+        columns = default_columns
+
+    if ctx.obj["human"]:
+        format_human_list(results, columns=columns)
+    else:
+        format_json(results)
+
+
+_SINCE_MULTIPLIERS = {"m": 60, "h": 3600, "d": 86400}
+
+
 def _parse_since(value: str) -> int:
     """Parse a human-friendly duration string into seconds."""
     match = re.fullmatch(r"(\d+)\s*([mhd])", value.strip().lower())
@@ -282,8 +309,7 @@ def _parse_since(value: str) -> int:
         )
     amount = int(match.group(1))
     unit = match.group(2)
-    multipliers = {"m": 60, "h": 3600, "d": 86400}
-    return amount * multipliers[unit]
+    return amount * _SINCE_MULTIPLIERS[unit]
 
 
 def _is_error_list(results: list[dict]) -> bool:
@@ -293,3 +319,8 @@ def _is_error_list(results: list[dict]) -> bool:
 def _filter_fields(items: list[dict], fields: list[str]) -> list[dict]:
     """Filter each item to only include the specified fields."""
     return [{k: item.get(k, "") for k in fields} for item in items]
+
+
+def _filter_fields_single(item: dict, fields: list[str]) -> dict:
+    """Filter a single item to only include the specified fields."""
+    return {k: item.get(k, "") for k in fields}

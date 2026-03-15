@@ -49,6 +49,22 @@ class DirectBackend(DuoBackend):
             for r in results
         ]
 
+    def get_integration(self, integration_key: str) -> dict:
+        try:
+            result = self._admin.get_integration(integration_key)
+        except RuntimeError as exc:
+            return {"status": "error", "message": str(exc), "code": 50000}
+        return {
+            "integration_key": result.get("integration_key", ""),
+            "name": result.get("name", ""),
+            "type": result.get("type", ""),
+            "status": result.get("status", ""),
+            "policy_key": result.get("policy_key", ""),
+            "notes": result.get("notes", ""),
+            "enroll_policy": result.get("enroll_policy", ""),
+            "groups_allowed": result.get("groups_allowed", []),
+        }
+
     def get_authentication_logs(
         self, mintime: int, maxtime: int, **kwargs
     ) -> list[dict]:
