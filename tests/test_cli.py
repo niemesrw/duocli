@@ -342,6 +342,41 @@ class TestGetApp:
         assert set(data.keys()) == {"name", "type"}
 
 
+class TestInfoSummary:
+    def test_info_summary_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["info-summary", "--help"])
+        assert result.exit_code == 0
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_info_summary_success(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.get_info_summary.return_value = {
+            "integration_count": 5,
+            "user_count": 10,
+            "admin_count": 2,
+        }
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["info-summary"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["integration_count"] == 5
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_info_summary_error(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.get_info_summary.return_value = {
+            "status": "error", "message": "API error", "code": 50000,
+        }
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["info-summary"])
+        assert result.exit_code == 2
+
+
 class TestCliHumanErrors:
     """Errors should always be JSON even with --human flag."""
 

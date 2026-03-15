@@ -193,6 +193,23 @@ def get_app(ctx: click.Context, ikey: str, fields: str | None, dry_run: bool) ->
         format_json(result)
 
 
+@cli.command("info-summary")
+@click.pass_context
+def info_summary(ctx: click.Context) -> None:
+    """Show summary counts of objects in the Duo account."""
+    backend = get_backend()
+    result = backend.get_info_summary()
+
+    if result.get("status") == "error":
+        format_error(result)
+        sys.exit(2)
+
+    if ctx.obj["human"]:
+        format_human_single(result)
+    else:
+        format_json(result)
+
+
 @cli.command("auth-logs")
 @click.option(
     "--since",

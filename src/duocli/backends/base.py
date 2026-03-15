@@ -27,6 +27,11 @@ class DuoBackend(ABC):
         ...
 
     @abstractmethod
+    def get_info_summary(self) -> dict:
+        """Get summary counts of objects in the account."""
+        ...
+
+    @abstractmethod
     def get_authentication_logs(
         self, mintime: int, maxtime: int, **kwargs
     ) -> list[dict]:

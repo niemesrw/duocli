@@ -65,6 +65,13 @@ class DirectBackend(DuoBackend):
             "groups_allowed": result.get("groups_allowed", []),
         }
 
+    def get_info_summary(self) -> dict:
+        try:
+            result = self._admin.get_info_summary()
+        except RuntimeError as exc:
+            return {"status": "error", "message": str(exc), "code": 50000}
+        return result
+
     def get_authentication_logs(
         self, mintime: int, maxtime: int, **kwargs
     ) -> list[dict]:
