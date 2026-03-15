@@ -42,3 +42,8 @@ class DuoBackend(ABC):
     def get_administrator_logs(self, mintime: int) -> list[dict]:
         """Get administrator action log events. mintime is a unix timestamp in seconds."""
         ...
+
+    @abstractmethod
+    def get_auth_stats(self, mintime: int, maxtime: int) -> dict:
+        """Get authentication attempt counts. Times are unix timestamps in seconds."""
+        ...

@@ -94,6 +94,15 @@ class DirectBackend(DuoBackend):
             for row in response.get("authlogs", [])
         ]
 
+    def get_auth_stats(self, mintime: int, maxtime: int) -> dict:
+        try:
+            result = self._admin.get_authentication_attempts(
+                mintime=mintime, maxtime=maxtime
+            )
+        except RuntimeError as exc:
+            return {"status": "error", "message": str(exc), "code": 50000}
+        return {k.lower(): v for k, v in result.items()}
+
     def get_administrator_logs(self, mintime: int) -> list[dict]:
         try:
             results = self._admin.get_administrator_log(mintime=mintime)

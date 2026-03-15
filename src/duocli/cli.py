@@ -258,6 +258,31 @@ def admin_logs(ctx: click.Context, since: str, fields: str | None) -> None:
                  default_columns=["timestamp", "admin", "action", "object"])
 
 
+@cli.command("auth-stats")
+@click.option(
+    "--since",
+    default="24h",
+    help="Time window: e.g. 1h, 6h, 7d, 30d. Default: 24h.",
+)
+@click.pass_context
+def auth_stats(ctx: click.Context, since: str) -> None:
+    """Show aggregate authentication attempt counts."""
+    backend = get_backend()
+    now_sec = int(time.time())
+    delta_sec = _parse_since(since)
+    mintime = now_sec - delta_sec
+    result = backend.get_auth_stats(mintime=mintime, maxtime=now_sec)
+
+    if result.get("status") == "error":
+        format_error(result)
+        sys.exit(2)
+
+    if ctx.obj["human"]:
+        format_human_single(result)
+    else:
+        format_json(result)
+
+
 @cli.command("schema")
 @click.argument("command_name")
 @click.pass_context

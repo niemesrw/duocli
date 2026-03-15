@@ -377,6 +377,29 @@ class TestInfoSummary:
         assert result.exit_code == 2
 
 
+class TestAuthStats:
+    def test_auth_stats_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["auth-stats", "--help"])
+        assert result.exit_code == 0
+        assert "--since" in result.output
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_auth_stats_success(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.get_auth_stats.return_value = {
+            "success": 100, "failure": 5, "fraud": 0, "error": 1,
+        }
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["auth-stats", "--since", "7d"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["success"] == 100
+        assert "SUCCESS" not in data  # normalized to lowercase
+
+
 class TestCliHumanErrors:
     """Errors should always be JSON even with --human flag."""
 
