@@ -410,3 +410,146 @@ class TestCliHumanErrors:
         runner = CliRunner()
         result = runner.invoke(cli, ["--human", "list-apps"])
         assert result.exit_code == 1
+
+
+class TestListPolicies:
+    def test_list_policies_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["list-policies", "--help"])
+        assert result.exit_code == 0
+        assert "--fields" in result.output
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_list_policies_success(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.list_policies.return_value = [
+            {"policy_key": "PK001", "name": "Default", "enabled": True},
+            {"policy_key": "PK002", "name": "Strict", "enabled": False},
+        ]
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["list-policies"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert len(data) == 2
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_list_policies_fields(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.list_policies.return_value = [
+            {"policy_key": "PK001", "name": "Default", "enabled": True},
+        ]
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["list-policies", "--fields", "policy_key,name"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert set(data[0].keys()) == {"policy_key", "name"}
+
+
+class TestGetPolicy:
+    def test_get_policy_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["get-policy", "--help"])
+        assert result.exit_code == 0
+        assert "--id" in result.output
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_get_policy_success(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.get_policy.return_value = {
+            "policy_key": "PK001",
+            "policy_name": "Default",
+            "enabled": True,
+            "sections": {},
+        }
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["get-policy", "--id", "PK001"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["policy_key"] == "PK001"
+
+    def test_get_policy_missing_id(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["get-policy"])
+        assert result.exit_code != 0
+
+
+class TestUpdateApp:
+    def test_update_app_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["update-app", "--help"])
+        assert result.exit_code == 0
+        assert "--ikey" in result.output
+        assert "--json" in result.output
+
+    def test_update_app_rejects_bad_ikey(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["update-app", "--ikey", "BADKEY", "--json", '{"notes": "x"}'])
+        assert result.exit_code != 0
+
+    @patch("duocli.cli.load_dotenv")
+    def test_update_app_rejects_empty_payload(self, mock_dotenv):
+        runner = CliRunner()
+        ikey = "DI" + "A" * 18
+        result = runner.invoke(cli, ["update-app", "--ikey", ikey, "--json", "{}"])
+        assert result.exit_code == 1
+
+    @patch("duocli.cli.load_dotenv")
+    def test_update_app_rejects_unknown_keys(self, mock_dotenv):
+        runner = CliRunner()
+        ikey = "DI" + "A" * 18
+        result = runner.invoke(cli, ["update-app", "--ikey", ikey, "--json", '{"bogus_field": "x"}'])
+        assert result.exit_code == 1
+        assert "bogus_field" in result.output
+
+    @patch("duocli.cli.load_dotenv")
+    def test_update_app_dry_run(self, mock_dotenv):
+        runner = CliRunner()
+        ikey = "DI" + "A" * 18
+        result = runner.invoke(cli, ["update-app", "--ikey", ikey, "--json", '{"notes": "test"}', "--dry-run"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["dry_run"] is True
+        assert data["action"] == "update_integration"
+        assert data["params"]["notes"] == "test"
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_update_app_success(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.update_integration.return_value = {
+            "status": "ok",
+            "integration_key": "DI" + "A" * 18,
+            "name": "Updated",
+            "type": "websdk",
+        }
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        ikey = "DI" + "A" * 18
+        result = runner.invoke(cli, ["update-app", "--ikey", ikey, "--json", '{"notes": "hello"}'])
+        assert result.exit_code == 0
+        mock_backend.update_integration.assert_called_once_with(
+            integration_key=ikey, notes="hello"
+        )
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_update_app_reset_secret_warns(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.update_integration.return_value = {
+            "status": "ok",
+            "integration_key": "DI" + "A" * 18,
+            "name": "Test",
+            "type": "websdk",
+        }
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        ikey = "DI" + "A" * 18
+        result = runner.invoke(cli, ["update-app", "--ikey", ikey, "--json", '{"reset_secret_key": true}'])
+        assert result.exit_code == 0
+        assert "secret_key is sensitive" in result.output

@@ -283,6 +283,21 @@ def auth_stats(ctx: click.Context, since: str) -> None:
         format_json(result)
 
 
+@cli.command("list-policies")
+@click.option("--fields", default=None, help="Comma-separated list of fields to include in output.")
+@click.pass_context
+def list_policies(ctx: click.Context, fields: str | None) -> None:
+    """List all Duo policies."""
+    backend = get_backend()
+    results = backend.list_policies()
+
+    if _is_error_list(results):
+        format_error(results[0])
+        sys.exit(2)
+
+    _output_list(ctx, results, fields)
+
+
 @cli.command("schema")
 @click.argument("command_name")
 @click.pass_context

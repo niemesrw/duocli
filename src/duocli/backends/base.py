@@ -47,3 +47,8 @@ class DuoBackend(ABC):
     def get_auth_stats(self, mintime: int, maxtime: int) -> dict:
         """Get authentication attempt counts. Times are unix timestamps in seconds."""
         ...
+
+    @abstractmethod
+    def list_policies(self) -> list[dict]:
+        """List all policies. Returns list of normalized dicts."""
+        ...
