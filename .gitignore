@@ -6,3 +6,6 @@ build/
 .venv/
 .env
 templates/**/parameters.json
+templates/**/node_modules/
+templates/**/cdk.out/
+templates/**/package-lock.json
