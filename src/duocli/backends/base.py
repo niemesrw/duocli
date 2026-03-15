@@ -62,3 +62,10 @@ class DuoBackend(ABC):
     def update_integration(self, integration_key: str, **kwargs) -> dict:
         """Update an integration. Returns normalized result dict."""
         ...
+
+    @abstractmethod
+    def get_activity_logs(
+        self, mintime: int, maxtime: int, limit: int = 500,
+    ) -> list[dict]:
+        """Get activity log events. Times are unix timestamps in ms. Limit caps event count."""
+        ...

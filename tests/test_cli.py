@@ -553,3 +553,44 @@ class TestUpdateApp:
         result = runner.invoke(cli, ["update-app", "--ikey", ikey, "--json", '{"reset_secret_key": true}'])
         assert result.exit_code == 0
         assert "secret_key is sensitive" in result.output
+
+
+class TestActivityLogs:
+    def test_activity_logs_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["activity-logs", "--help"])
+        assert result.exit_code == 0
+        assert "--since" in result.output
+        assert "--limit" in result.output
+        assert "--fields" in result.output
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_activity_logs_success(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.get_activity_logs.return_value = [
+            {"timestamp": "2026-03-14T00:00:00Z", "action": "create", "actor": "admin",
+             "actor_type": "admin", "target": "app", "target_type": "integration",
+             "application": "Test", "ip": "1.2.3.4"},
+        ]
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["activity-logs", "--since", "1h"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert len(data) == 1
+        assert data[0]["action"] == "create"
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_activity_logs_passes_limit(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.get_activity_logs.return_value = []
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["activity-logs", "--since", "1h", "--limit", "10"])
+        assert result.exit_code == 0
+        call_args = mock_backend.get_activity_logs.call_args
+        assert call_args.kwargs.get("limit") == 10
+
+

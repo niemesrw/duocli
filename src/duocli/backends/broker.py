@@ -51,6 +51,11 @@ class BrokerBackend(DuoBackend):
     def update_integration(self, integration_key: str, **kwargs) -> dict:
         raise NotImplementedError(_NOT_IMPLEMENTED_MSG)
 
+    def get_activity_logs(
+        self, mintime: int, maxtime: int, limit: int = 500,
+    ) -> list[dict]:
+        raise NotImplementedError(_NOT_IMPLEMENTED_MSG)
+
 
 _NOT_IMPLEMENTED_MSG = (
     "Broker mode is not yet implemented. Use direct mode with "

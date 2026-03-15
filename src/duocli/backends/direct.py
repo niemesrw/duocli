@@ -136,6 +136,38 @@ class DirectBackend(DuoBackend):
             "type": result.get("type", ""),
         }
 
+    def get_activity_logs(
+        self, mintime: int, maxtime: int, limit: int = 500,
+    ) -> list[dict]:
+        try:
+            events = []
+            kwargs = {"mintime": str(mintime), "maxtime": str(maxtime)}
+            while len(events) < limit:
+                response = self._admin.get_activity_logs(**kwargs)
+                items = response.get("items", [])
+                if not items:
+                    break
+                for item in items:
+                    if len(events) >= limit:
+                        break
+                    events.append({
+                        "timestamp": item.get("ts", ""),
+                        "action": item.get("action", ""),
+                        "actor": item.get("actor", {}).get("name", ""),
+                        "actor_type": item.get("actor", {}).get("type", ""),
+                        "target": item.get("target", {}).get("name", ""),
+                        "target_type": item.get("target", {}).get("type", ""),
+                        "application": item.get("application", {}).get("name", ""),
+                        "ip": item.get("access_device", {}).get("ip", {}).get("address", ""),
+                    })
+                next_offset = response.get("metadata", {}).get("next_offset")
+                if not next_offset:
+                    break
+                kwargs["next_offset"] = next_offset
+        except RuntimeError as exc:
+            return [{"status": "error", "message": str(exc), "code": 50000}]
+        return events
+
     def get_administrator_logs(self, mintime: int) -> list[dict]:
         try:
             results = self._admin.get_administrator_log(mintime=mintime)

@@ -378,6 +378,30 @@ def update_app(ctx: click.Context, ikey: str, json_payload: str, dry_run: bool) 
         warn_secret_key()
 
 
+@cli.command("activity-logs")
+@click.option(
+    "--since", default="24h",
+    help="Time window: e.g. 1h, 6h, 7d, 30d. Default: 24h.",
+)
+@click.option("--limit", default=500, type=int, help="Max events to return. Default: 500.")
+@click.option("--fields", default=None, help="Comma-separated list of fields to include in output.")
+@click.pass_context
+def activity_logs(ctx: click.Context, since: str, limit: int, fields: str | None) -> None:
+    """Show activity log events."""
+    backend = get_backend()
+    now_ms = int(time.time() * 1000)
+    delta_ms = _parse_since(since) * 1000
+    mintime = now_ms - delta_ms
+    results = backend.get_activity_logs(mintime=mintime, maxtime=now_ms, limit=limit)
+
+    if _is_error_list(results):
+        format_error(results[0])
+        sys.exit(2)
+
+    _output_list(ctx, results, fields,
+                 default_columns=["timestamp", "action", "actor", "target", "application", "ip"])
+
+
 @cli.command("schema")
 @click.argument("command_name")
 @click.pass_context
