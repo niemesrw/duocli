@@ -594,3 +594,40 @@ class TestActivityLogs:
         assert call_args.kwargs.get("limit") == 10
 
 
+class TestTrustMonitor:
+    def test_trust_monitor_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["trust-monitor", "--help"])
+        assert result.exit_code == 0
+        assert "--since" in result.output
+        assert "--limit" in result.output
+        assert "--fields" in result.output
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_trust_monitor_success(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.get_trust_monitor_events.return_value = [
+            {"timestamp": "1710000000000", "type": "auth_anomaly",
+             "priority": "high", "description": "https://duo.com/...",
+             "from_common_netblock": False, "sekey": "SE123"},
+        ]
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["trust-monitor", "--since", "7d"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert len(data) == 1
+        assert data[0]["type"] == "auth_anomaly"
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_trust_monitor_passes_limit(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.get_trust_monitor_events.return_value = []
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["trust-monitor", "--since", "1h", "--limit", "10"])
+        assert result.exit_code == 0
+        call_args = mock_backend.get_trust_monitor_events.call_args
+        assert call_args.kwargs.get("limit") == 10

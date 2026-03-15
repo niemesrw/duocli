@@ -168,6 +168,28 @@ class DirectBackend(DuoBackend):
             return [{"status": "error", "message": str(exc), "code": 50000}]
         return events
 
+    def get_trust_monitor_events(
+        self, mintime: int, maxtime: int, limit: int = 500,
+    ) -> list[dict]:
+        try:
+            events = []
+            for event in self._admin.get_trust_monitor_events_iterator(
+                mintime=mintime, maxtime=maxtime,
+            ):
+                events.append({
+                    "timestamp": event.get("surfaced_timestamp", ""),
+                    "type": event.get("type", ""),
+                    "priority": event.get("priority", ""),
+                    "description": event.get("triage_event_uri", ""),
+                    "from_common_netblock": event.get("from_common_netblock", ""),
+                    "sekey": event.get("sekey", ""),
+                })
+                if len(events) >= limit:
+                    break
+        except RuntimeError as exc:
+            return [{"status": "error", "message": str(exc), "code": 50000}]
+        return events
+
     def get_administrator_logs(self, mintime: int) -> list[dict]:
         try:
             results = self._admin.get_administrator_log(mintime=mintime)

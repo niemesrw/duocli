@@ -56,6 +56,11 @@ class BrokerBackend(DuoBackend):
     ) -> list[dict]:
         raise NotImplementedError(_NOT_IMPLEMENTED_MSG)
 
+    def get_trust_monitor_events(
+        self, mintime: int, maxtime: int, limit: int = 500,
+    ) -> list[dict]:
+        raise NotImplementedError(_NOT_IMPLEMENTED_MSG)
+
 
 _NOT_IMPLEMENTED_MSG = (
     "Broker mode is not yet implemented. Use direct mode with "

@@ -69,3 +69,10 @@ class DuoBackend(ABC):
     ) -> list[dict]:
         """Get activity log events. Times are unix timestamps in ms. Limit caps event count."""
         ...
+
+    @abstractmethod
+    def get_trust_monitor_events(
+        self, mintime: int, maxtime: int, limit: int = 500,
+    ) -> list[dict]:
+        """Get Trust Monitor events. Times are unix timestamps in ms. Limit caps event count."""
+        ...
