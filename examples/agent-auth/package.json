@@ -1,0 +1,16 @@
+{
+  "name": "duo-agent-auth-demo",
+  "version": "1.0.0",
+  "description": "Demo: OAuth 2.1 authentication between A2A agents using Duo Security",
+  "scripts": {
+    "alice": "tsx src/alice.ts",
+    "bob": "tsx src/bob.ts"
+  },
+  "dependencies": {
+    "@a2a-js/sdk": "^0.3.13",
+    "express": "^5.2.1",
+    "jose": "^6.2.2",
+    "tsx": "^4.21.0",
+    "uuid": "^13.0.0"
+  }
+}
