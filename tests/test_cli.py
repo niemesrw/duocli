@@ -6,6 +6,7 @@ from unittest.mock import patch, MagicMock
 from click.testing import CliRunner
 
 from duocli.cli import cli
+from duocli.oauth import OAuthClient
 
 # All env vars that could affect backend selection
 _DUO_ENV_VARS = (
@@ -631,3 +632,135 @@ class TestTrustMonitor:
         assert result.exit_code == 0
         call_args = mock_backend.get_trust_monitor_events.call_args
         assert call_args.kwargs.get("limit") == 10
+
+
+# ─── OAuth commands ──────────────────────────────────────────────────
+
+_SSO_ENV = {
+    "DUO_OAUTH_BASE": "https://sso-test.sso.duosecurity.com/oauth2/TESTAPPID",
+    "DUO_OAUTH_CLIENT_ID": "test-client-id",
+    "DUO_OAUTH_CLIENT_SECRET": "test-client-secret",
+}
+
+
+class TestOAuthToken:
+    def test_oauth_token_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["oauth-token", "--help"])
+        assert result.exit_code == 0
+        assert "--scope" in result.output
+        assert "--client-id" in result.output
+
+    @patch("duocli.cli.load_dotenv")
+    def test_oauth_token_missing_oauth_base(self, mock_dotenv, monkeypatch):
+        for var in (*_DUO_ENV_VARS, "DUO_OAUTH_BASE"):
+            monkeypatch.delenv(var, raising=False)
+        runner = CliRunner()
+        result = runner.invoke(cli, ["oauth-token"])
+        assert result.exit_code == 1
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.oauth.requests.post")
+    def test_oauth_token_success(self, mock_post, mock_dotenv, monkeypatch):
+        for k, v in _SSO_ENV.items():
+            monkeypatch.setenv(k, v)
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {
+            "access_token": "eyJ...",
+            "token_type": "Bearer",
+            "expires_in": 3600,
+            "scope": "agent:call",
+        }
+        mock_resp.raise_for_status = MagicMock()
+        mock_post.return_value = mock_resp
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["oauth-token"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["access_token"] == "eyJ..."
+        assert data["token_type"] == "Bearer"
+
+    @patch("duocli.cli.load_dotenv")
+    def test_oauth_token_missing_client_creds(self, mock_dotenv, monkeypatch):
+        monkeypatch.setenv("DUO_OAUTH_BASE", "https://sso-test.sso.duosecurity.com/oauth2/TESTAPPID")
+        monkeypatch.delenv("DUO_OAUTH_CLIENT_ID", raising=False)
+        monkeypatch.delenv("DUO_OAUTH_CLIENT_SECRET", raising=False)
+        runner = CliRunner()
+        result = runner.invoke(cli, ["oauth-token"])
+        assert result.exit_code == 1
+
+
+class TestOAuthIntrospect:
+    def test_oauth_introspect_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["oauth-introspect", "--help"])
+        assert result.exit_code == 0
+        assert "--token" in result.output
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.oauth.requests.post")
+    def test_oauth_introspect_success(self, mock_post, mock_dotenv, monkeypatch):
+        for k, v in _SSO_ENV.items():
+            monkeypatch.setenv(k, v)
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"active": True, "sub": "agent-alice", "scope": "agent:call"}
+        mock_resp.raise_for_status = MagicMock()
+        mock_post.return_value = mock_resp
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["oauth-introspect", "--token", "eyJ..."])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["active"] is True
+
+
+class TestOAuthJwks:
+    def test_oauth_jwks_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["oauth-jwks", "--help"])
+        assert result.exit_code == 0
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.oauth.requests.get")
+    def test_oauth_jwks_success(self, mock_get, mock_dotenv, monkeypatch):
+        for k, v in _SSO_ENV.items():
+            monkeypatch.setenv(k, v)
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"keys": [{"kty": "RSA", "kid": "abc123"}]}
+        mock_resp.raise_for_status = MagicMock()
+        mock_get.return_value = mock_resp
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["oauth-jwks"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "keys" in data
+
+
+class TestOAuthDiscover:
+    def test_oauth_discover_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["oauth-discover", "--help"])
+        assert result.exit_code == 0
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.oauth.requests.get")
+    def test_oauth_discover_success(self, mock_get, mock_dotenv, monkeypatch):
+        for k, v in _SSO_ENV.items():
+            monkeypatch.setenv(k, v)
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {
+            "issuer": "https://sso-test.sso.duosecurity.com/oauth/v1",
+            "token_endpoint": "https://sso-test.sso.duosecurity.com/oauth/v1/token",
+            "jwks_uri": "https://sso-test.sso.duosecurity.com/oauth/v1/keys",
+        }
+        mock_resp.raise_for_status = MagicMock()
+        mock_get.return_value = mock_resp
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["oauth-discover"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "issuer" in data
+        assert "token_endpoint" in data

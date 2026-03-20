@@ -5,11 +5,14 @@ import re
 import sys
 import time
 
+import os
+
 import click
 from dotenv import load_dotenv
 
 from duocli import __version__
 from duocli.backends import get_backend
+from duocli.oauth import OAuthClient
 from duocli.output import (
     format_error,
     format_human_list,
@@ -461,6 +464,86 @@ def schema(ctx: click.Context, command_name: str) -> None:
             params.append(param_info)
 
     format_json({"command": command_name, "params": params})
+
+
+def _get_oauth_client() -> OAuthClient:
+    """Build an OAuthClient from env vars, or exit with a helpful message."""
+    oauth_base = os.environ.get("DUO_OAUTH_BASE")
+    client_id = os.environ.get("DUO_OAUTH_CLIENT_ID")
+    client_secret = os.environ.get("DUO_OAUTH_CLIENT_SECRET")
+    if not oauth_base:
+        format_error({"status": "error", "message": "DUO_OAUTH_BASE is required for OAuth commands (e.g. https://sso-xxx.sso.duosecurity.com/oauth2/APPID)", "code": 10000})
+        raise SystemExit(1)
+    return OAuthClient(oauth_base=oauth_base, client_id=client_id, client_secret=client_secret)
+
+
+@cli.command("oauth-token")
+@click.option("--scope", default="agent:call", help="Space-separated scopes to request. Default: agent:call.")
+@click.option("--client-id", default=None, help="Override DUO_OAUTH_CLIENT_ID env var.")
+@click.option("--client-secret", default=None, help="Override DUO_OAUTH_CLIENT_SECRET env var.")
+@click.pass_context
+def oauth_token(ctx: click.Context, scope: str, client_id: str | None, client_secret: str | None) -> None:
+    """Exchange client credentials for an OAuth 2.1 access token."""
+    client = _get_oauth_client()
+    cid = client_id or client.client_id
+    csec = client_secret or client.client_secret
+    if not cid or not csec:
+        format_error({"status": "error", "message": "Client ID and secret are required (via --client-id/--client-secret or DUO_OAUTH_CLIENT_ID/DUO_OAUTH_CLIENT_SECRET)", "code": 10000})
+        sys.exit(1)
+    result = client.get_token(client_id=cid, client_secret=csec, scope=scope)
+    if result.get("status") == "error":
+        format_error(result)
+        sys.exit(2)
+    if ctx.obj["human"]:
+        format_human_single(result)
+    else:
+        format_json(result)
+
+
+@cli.command("oauth-introspect")
+@click.option("--token", required=True, help="Access token to introspect.")
+@click.pass_context
+def oauth_introspect(ctx: click.Context, token: str) -> None:
+    """Introspect an OAuth access token via Duo's introspection endpoint."""
+    client = _get_oauth_client()
+    result = client.introspect(token=token)
+    if result.get("status") == "error":
+        format_error(result)
+        sys.exit(2)
+    if ctx.obj["human"]:
+        format_human_single(result)
+    else:
+        format_json(result)
+
+
+@cli.command("oauth-jwks")
+@click.pass_context
+def oauth_jwks(ctx: click.Context) -> None:
+    """Fetch the JWKS (JSON Web Key Set) from Duo's SSO endpoint."""
+    client = _get_oauth_client()
+    result = client.get_jwks()
+    if result.get("status") == "error":
+        format_error(result)
+        sys.exit(2)
+    if ctx.obj["human"]:
+        format_human_single(result)
+    else:
+        format_json(result)
+
+
+@cli.command("oauth-discover")
+@click.pass_context
+def oauth_discover(ctx: click.Context) -> None:
+    """Fetch the OIDC discovery document from Duo's SSO endpoint."""
+    client = _get_oauth_client()
+    result = client.discover()
+    if result.get("status") == "error":
+        format_error(result)
+        sys.exit(2)
+    if ctx.obj["human"]:
+        format_human_single(result)
+    else:
+        format_json(result)
 
 
 def _output_list(
