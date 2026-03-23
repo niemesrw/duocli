@@ -35,16 +35,49 @@ uv run duo --human get-app --ikey DIXXXXXXXXXXXXXXXXXX
 ```
 
 ### Create a new app
+
+**Simple types** (websdk, adminapi):
 ```bash
-# Simple
 uv run duo create-app --name "My App" --type websdk
-
-# With extra params via JSON
-uv run duo create-app --json '{"name": "My App", "type": "websdk", "notes": "Production SSO"}'
-
-# Dry-run first
 uv run duo create-app --name "My App" --type websdk --dry-run
 ```
+
+**OIDC / SSO apps** (`sso-oidc-generic`, `sso-generic`, etc.) require an `sso` block — use `--json`:
+
+```bash
+# Authorization Code + PKCE (most common — for web apps and MCP servers)
+uv run duo create-app --json '{
+  "name": "My App",
+  "type": "sso-oidc-generic",
+  "user_access": "ALL_USERS",
+  "sso": {
+    "oidc_config": {
+      "grant_types": {"authorization_code": true},
+      "redirect_uris": ["https://myapp.example.com/oauth/callback"],
+      "scopes": [
+        {"name": "openid"},
+        {"name": "email", "idp_attribute_claim_mapping": [{"idp_attribute": "mail", "oidc_claim": "email"}]},
+        {"name": "profile", "idp_attribute_claim_mapping": [{"idp_attribute": "displayname", "oidc_claim": "name"}]}
+      ]
+    }
+  }
+}'
+```
+
+**OIDC field format gotchas** (Duo API quirks — not standard OIDC):
+- `grant_types` is a **dict** `{"authorization_code": true}`, NOT an array
+- `scopes` is a **list of objects**, NOT an array of strings
+- `openid` scope needs no extra fields; `email` and `profile` require `idp_attribute_claim_mapping`
+- Claim mapping format: `[{"idp_attribute": "<duo_attr>", "oidc_claim": "<claim_name>"}]`
+- Common Duo attributes: `mail` → `email`, `displayname` → `name`
+- OIDC apps have no `secret_key` — auth uses PKCE, not a client secret
+
+**After creation** — derive the issuer URL from the integration key:
+```
+duo_issuer_url = https://<sso-host>/oidc/<integration_key>
+# e.g. https://sso-e8704f1a.sso.duosecurity.com/oidc/DI6PKF2255QAV2PQEM3A
+```
+(The SSO host is account-wide — check an existing app or the Duo Admin Panel to find yours.)
 
 ### Update an app
 ```bash

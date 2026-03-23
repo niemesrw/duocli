@@ -275,6 +275,195 @@ class TestCliJsonPayload:
         )
 
 
+class TestCreateOidcApp:
+    """Tests for the create-oidc-app command."""
+
+    _IKEY = "DI" + "A" * 18
+    _SUCCESS = {
+        "status": "ok",
+        "integration_key": "DI" + "A" * 18,
+        "secret_key": "",
+        "name": "My OIDC App",
+        "type": "sso-oidc-generic",
+    }
+
+    def test_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["create-oidc-app", "--help"])
+        assert result.exit_code == 0
+        assert "--name" in result.output
+        assert "--redirect-uri" in result.output
+        assert "--user-access" in result.output
+        assert "--grant-type" in result.output
+
+    def test_missing_name(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["create-oidc-app", "--redirect-uri", "https://app.example.com/cb"])
+        assert result.exit_code != 0
+        assert "--name" in result.output
+
+    def test_missing_redirect_uri(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["create-oidc-app", "--name", "My App"])
+        assert result.exit_code != 0
+        assert "--redirect-uri" in result.output
+
+    @patch("duocli.cli.load_dotenv")
+    def test_invalid_grant_type(self, mock_dotenv):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "create-oidc-app",
+            "--name", "My App",
+            "--redirect-uri", "https://app.example.com/cb",
+            "--grant-type", "password",
+        ])
+        assert result.exit_code == 1
+        assert "Invalid grant type" in result.output
+
+    @patch("duocli.cli.load_dotenv")
+    def test_invalid_user_access(self, mock_dotenv):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "create-oidc-app",
+            "--name", "My App",
+            "--redirect-uri", "https://app.example.com/cb",
+            "--user-access", "EVERYONE",
+        ])
+        assert result.exit_code == 1
+        assert "Invalid user_access" in result.output
+
+    @patch("duocli.cli.load_dotenv")
+    def test_dry_run_defaults(self, mock_dotenv):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "create-oidc-app",
+            "--name", "My App",
+            "--redirect-uri", "https://app.example.com/cb",
+            "--dry-run",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["dry_run"] is True
+        assert data["action"] == "create_oidc_app"
+        params = data["params"]
+        assert params["name"] == "My App"
+        assert params["type"] == "sso-oidc-generic"
+        assert params["user_access"] == "ALL_USERS"
+        oidc = params["sso"]["oidc_config"]
+        assert oidc["grant_types"] == {"authorization_code": True}
+        assert "https://app.example.com/cb" in oidc["redirect_uris"]
+        scope_names = [s["name"] for s in oidc["scopes"]]
+        assert "openid" in scope_names
+        assert "email" in scope_names
+        assert "profile" in scope_names
+
+    @patch("duocli.cli.load_dotenv")
+    def test_dry_run_multiple_redirect_uris(self, mock_dotenv):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "create-oidc-app",
+            "--name", "My App",
+            "--redirect-uri", "https://app.example.com/cb",
+            "--redirect-uri", "https://localhost:3000/cb",
+            "--dry-run",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        uris = data["params"]["sso"]["oidc_config"]["redirect_uris"]
+        assert "https://app.example.com/cb" in uris
+        assert "https://localhost:3000/cb" in uris
+
+    @patch("duocli.cli.load_dotenv")
+    def test_dry_run_custom_user_access(self, mock_dotenv):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "create-oidc-app",
+            "--name", "My App",
+            "--redirect-uri", "https://app.example.com/cb",
+            "--user-access", "PERMITTED_GROUPS",
+            "--dry-run",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["params"]["user_access"] == "PERMITTED_GROUPS"
+
+    @patch("duocli.cli.load_dotenv")
+    def test_dry_run_multiple_grant_types(self, mock_dotenv):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "create-oidc-app",
+            "--name", "My App",
+            "--redirect-uri", "https://app.example.com/cb",
+            "--grant-type", "authorization_code",
+            "--grant-type", "client_credentials",
+            "--dry-run",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        grant_types = data["params"]["sso"]["oidc_config"]["grant_types"]
+        assert grant_types == {"authorization_code": True, "client_credentials": True}
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_success(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.create_integration.return_value = self._SUCCESS
+        mock_get_backend.return_value = mock_backend
+
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "create-oidc-app",
+            "--name", "My OIDC App",
+            "--redirect-uri", "https://app.example.com/cb",
+        ])
+        assert result.exit_code == 0
+        mock_backend.create_integration.assert_called_once_with(
+            name="My OIDC App",
+            integration_type="sso-oidc-generic",
+            user_access="ALL_USERS",
+            sso={
+                "oidc_config": {
+                    "grant_types": {"authorization_code": True},
+                    "redirect_uris": ["https://app.example.com/cb"],
+                    "scopes": [
+                        {"name": "openid"},
+                        {"name": "email", "idp_attribute_claim_mapping": [{"idp_attribute": "mail", "oidc_claim": "email"}]},
+                        {"name": "profile", "idp_attribute_claim_mapping": [{"idp_attribute": "displayname", "oidc_claim": "name"}]},
+                    ],
+                }
+            },
+        )
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_api_error(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.create_integration.return_value = {
+            "status": "error", "message": "Duo API error", "code": 50000
+        }
+        mock_get_backend.return_value = mock_backend
+
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "create-oidc-app",
+            "--name", "My App",
+            "--redirect-uri", "https://app.example.com/cb",
+        ])
+        assert result.exit_code == 2
+
+    @patch("duocli.cli.load_dotenv")
+    def test_no_credentials(self, mock_dotenv, monkeypatch):
+        for var in _DUO_ENV_VARS:
+            monkeypatch.delenv(var, raising=False)
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "create-oidc-app",
+            "--name", "My App",
+            "--redirect-uri", "https://app.example.com/cb",
+        ])
+        assert result.exit_code == 1
+
+
 class TestGetApp:
     def test_get_app_help(self):
         runner = CliRunner()

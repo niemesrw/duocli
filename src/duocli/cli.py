@@ -136,6 +136,117 @@ def create_app(
     warn_secret_key()
 
 
+_OIDC_DEFAULT_SCOPES = [
+    {"name": "openid"},
+    {"name": "email", "idp_attribute_claim_mapping": [{"idp_attribute": "mail", "oidc_claim": "email"}]},
+    {"name": "profile", "idp_attribute_claim_mapping": [{"idp_attribute": "displayname", "oidc_claim": "name"}]},
+]
+
+_VALID_GRANT_TYPES = {"authorization_code", "client_credentials"}
+_VALID_USER_ACCESS = {"ALL_USERS", "PERMITTED_GROUPS", "NO_USERS"}
+
+
+@cli.command("create-oidc-app")
+@click.option("--name", required=True, help="Name for the new OIDC integration.")
+@click.option(
+    "--redirect-uri",
+    "redirect_uris",
+    multiple=True,
+    required=True,
+    help="Redirect URI (repeatable). At least one required.",
+)
+@click.option(
+    "--grant-type",
+    "grant_types",
+    multiple=True,
+    default=("authorization_code",),
+    show_default=True,
+    help="OAuth grant type (repeatable). One of: authorization_code, client_credentials.",
+)
+@click.option(
+    "--user-access",
+    default="ALL_USERS",
+    show_default=True,
+    help="Who can use this app. One of: ALL_USERS, PERMITTED_GROUPS, NO_USERS.",
+)
+@click.option("--dry-run", is_flag=True, help="Show what would be sent without calling the API.")
+@click.pass_context
+def create_oidc_app(
+    ctx: click.Context,
+    name: str,
+    redirect_uris: tuple[str, ...],
+    grant_types: tuple[str, ...],
+    user_access: str,
+    dry_run: bool,
+) -> None:
+    """Create a Duo OIDC app (sso-oidc-generic) with sensible defaults.
+
+    Defaults to Authorization Code + PKCE, openid/email/profile scopes with
+    standard claim mappings, and ALL_USERS access. Use --user-access to restrict.
+
+    \b
+    Examples:
+      duo create-oidc-app --name "My App" --redirect-uri https://myapp.example.com/callback
+      duo create-oidc-app --name "M2M Agent" --redirect-uri https://agent.example.com/cb \\
+          --grant-type authorization_code --grant-type client_credentials \\
+          --user-access PERMITTED_GROUPS
+    """
+    validate_name(name)
+
+    invalid_grants = set(grant_types) - _VALID_GRANT_TYPES
+    if invalid_grants:
+        format_error({
+            "status": "error",
+            "message": f"Invalid grant type(s): {', '.join(sorted(invalid_grants))}. Must be one of: {', '.join(sorted(_VALID_GRANT_TYPES))}",
+            "code": 10000,
+        })
+        sys.exit(1)
+
+    if user_access not in _VALID_USER_ACCESS:
+        format_error({
+            "status": "error",
+            "message": f"Invalid user_access: {user_access!r}. Must be one of: {', '.join(sorted(_VALID_USER_ACCESS))}",
+            "code": 10000,
+        })
+        sys.exit(1)
+
+    payload = {
+        "name": name,
+        "type": "sso-oidc-generic",
+        "user_access": user_access,
+        "sso": {
+            "oidc_config": {
+                "grant_types": {gt: True for gt in grant_types},
+                "redirect_uris": list(redirect_uris),
+                "scopes": _OIDC_DEFAULT_SCOPES,
+            }
+        },
+    }
+
+    if dry_run:
+        format_json({"dry_run": True, "action": "create_oidc_app", "params": payload})
+        return
+
+    backend = get_backend()
+    result = backend.create_integration(
+        name=name,
+        integration_type="sso-oidc-generic",
+        user_access=user_access,
+        sso=payload["sso"],
+    )
+
+    if result.get("status") == "error":
+        format_error(result)
+        sys.exit(2)
+
+    if ctx.obj["human"]:
+        format_human_single(result)
+    else:
+        format_json(result)
+
+    warn_secret_key()
+
+
 @cli.command("delete-app")
 @click.option("--ikey", required=True, help="Integration key of the app to delete.")
 @click.option("--dry-run", is_flag=True, help="Validate inputs and show what would happen without calling API.")

@@ -39,10 +39,32 @@ DUO_HOST=api-XXXXXXXX.duosecurity.com
 ```bash
 uv run duo --human list-apps                              # List all integrations
 uv run duo --human get-app --ikey DIXXXXXXXXXXXXXXXXXX    # Inspect one app
-uv run duo create-app --name "My App" --type websdk       # Create an app
+uv run duo create-app --name "My App" --type websdk       # Create a simple app
 uv run duo update-app --ikey DIXXX --json '{"name":"New"}' # Update an app
 uv run duo delete-app --ikey DIXXXXXXXXXXXXXXXXXX          # Delete an app
 ```
+
+**Creating an OIDC app** (`sso-oidc-generic`) requires an `sso` block with non-obvious field shapes — use `--json`:
+
+```bash
+uv run duo create-app --json '{
+  "name": "My App",
+  "type": "sso-oidc-generic",
+  "sso": {
+    "oidc_config": {
+      "grant_types": {"authorization_code": true},
+      "redirect_uris": ["https://myapp.example.com/oauth/callback"],
+      "scopes": [{"name": "openid"}]
+    }
+  }
+}'
+```
+
+Field format quirks (Duo API, not standard OIDC):
+- `grant_types` → dict `{"authorization_code": true}`, not an array
+- `scopes` → list of objects `[{"name": "openid"}]`, not strings
+- `email`/`profile` scopes require IdP→claim mappings — configure in Duo Admin Panel after creation
+- OIDC apps have no `secret_key`; auth uses PKCE
 
 ### Logs & Audit
 
