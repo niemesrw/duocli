@@ -349,6 +349,7 @@ class TestCreateOidcApp:
         assert params["name"] == "My App"
         assert params["type"] == "sso-oidc-generic"
         assert params["user_access"] == "ALL_USERS"
+        assert params["enroll_policy"] == "allow"
         oidc = params["sso"]["oidc_config"]
         assert oidc["grant_types"] == {"authorization_code": True}
         assert "https://app.example.com/cb" in oidc["redirect_uris"]
@@ -421,6 +422,7 @@ class TestCreateOidcApp:
             name="My OIDC App",
             integration_type="sso-oidc-generic",
             user_access="ALL_USERS",
+            enroll_policy="allow",
             sso={
                 "oidc_config": {
                     "grant_types": {"authorization_code": True},

@@ -50,6 +50,7 @@ uv run duo create-app --json '{
   "name": "My App",
   "type": "sso-oidc-generic",
   "user_access": "ALL_USERS",
+  "enroll_policy": "allow",
   "sso": {
     "oidc_config": {
       "grant_types": {"authorization_code": true},

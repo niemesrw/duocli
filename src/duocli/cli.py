@@ -169,6 +169,12 @@ _VALID_USER_ACCESS = {"ALL_USERS", "PERMITTED_GROUPS", "NO_USERS"}
     show_default=True,
     help="Who can use this app. One of: ALL_USERS, PERMITTED_GROUPS, NO_USERS.",
 )
+@click.option(
+    "--enroll-policy",
+    default="allow",
+    show_default=True,
+    help="JIT provisioning policy. 'allow' auto-enrolls users on first login.",
+)
 @click.option("--dry-run", is_flag=True, help="Show what would be sent without calling the API.")
 @click.pass_context
 def create_oidc_app(
@@ -177,12 +183,13 @@ def create_oidc_app(
     redirect_uris: tuple[str, ...],
     grant_types: tuple[str, ...],
     user_access: str,
+    enroll_policy: str,
     dry_run: bool,
 ) -> None:
     """Create a Duo OIDC app (sso-oidc-generic) with sensible defaults.
 
     Defaults to Authorization Code + PKCE, openid/email/profile scopes with
-    standard claim mappings, and ALL_USERS access. Use --user-access to restrict.
+    standard claim mappings, ALL_USERS access, and JIT provisioning (enroll_policy=allow).
 
     \b
     Examples:
@@ -214,6 +221,7 @@ def create_oidc_app(
         "name": name,
         "type": "sso-oidc-generic",
         "user_access": user_access,
+        "enroll_policy": enroll_policy,
         "sso": {
             "oidc_config": {
                 "grant_types": {gt: True for gt in grant_types},
@@ -232,6 +240,7 @@ def create_oidc_app(
         name=name,
         integration_type="sso-oidc-generic",
         user_access=user_access,
+        enroll_policy=enroll_policy,
         sso=payload["sso"],
     )
 
