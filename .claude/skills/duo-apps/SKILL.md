@@ -18,6 +18,7 @@ Use duocli to manage Duo integrations (applications).
 | `list-apps` | List all integrations | `--fields` |
 | `get-app` | Get details of one app | `--ikey`, `--fields` |
 | `create-app` | Create a new integration | `--name`, `--type`, `--json`, `--dry-run` |
+| `create-oidc-app` | Create an OIDC/SSO app with defaults | `--name`, `--redirect-uri`, `--grant-type`, `--user-access`, `--dry-run` |
 | `update-app` | Update an integration | `--ikey`, `--json`, `--dry-run` |
 | `delete-app` | Delete an integration | `--ikey`, `--dry-run` |
 
@@ -35,16 +36,40 @@ uv run duo --human get-app --ikey DIXXXXXXXXXXXXXXXXXX
 ```
 
 ### Create a new app
+
+**Simple types** (websdk, adminapi):
 ```bash
-# Simple
 uv run duo create-app --name "My App" --type websdk
-
-# With extra params via JSON
-uv run duo create-app --json '{"name": "My App", "type": "websdk", "notes": "Production SSO"}'
-
-# Dry-run first
 uv run duo create-app --name "My App" --type websdk --dry-run
 ```
+
+**OIDC / SSO apps** — use the dedicated `create-oidc-app` command:
+
+```bash
+# Basic — authorization_code grant with openid/email/profile scopes
+uv run duo create-oidc-app --name "My App" --redirect-uri https://myapp.example.com/callback
+
+# M2M + interactive — multiple grant types, restricted access
+uv run duo create-oidc-app --name "Agent App" --redirect-uri https://agent.example.com/cb \
+    --grant-type authorization_code --grant-type client_credentials \
+    --user-access PERMITTED_GROUPS
+
+# Dry-run first
+uv run duo create-oidc-app --name "My App" --redirect-uri https://myapp.example.com/callback --dry-run
+```
+
+Defaults: `authorization_code` grant, `openid`/`email`/`profile` scopes with common IdP→claim mappings (`mail`→`email`, `displayname`→`name`), `ALL_USERS` access, JIT provisioning. PKCE is enforced by Duo at the policy level.
+
+**Advanced: raw JSON via `create-app --json`** — for full control over the `sso.oidc_config` payload. Note Duo API quirks: `grant_types` is a dict, `scopes` is a list of objects, and `email`/`profile` scopes require `idp_attribute_claim_mapping`.
+
+**OAuth 2.1 / OIDC** (`sso-oauth-server`) and **MCP** (`sso-oauth-server-mcp`) are newer app types with mandatory PKCE, custom scopes, and M2M support. Create the shell via `create-app --type sso-oauth-server`, then configure grant types, redirect URIs, and scopes in the Duo Admin Panel (not yet API-manageable).
+
+**After creation** — derive the issuer URL from the integration key:
+```
+duo_issuer_url = https://<sso-host>/oidc/<integration_key>
+# e.g. https://sso-e8704f1a.sso.duosecurity.com/oidc/DI6PKF2255QAV2PQEM3A
+```
+(The SSO host is account-wide — check an existing app or the Duo Admin Panel to find yours.)
 
 ### Update an app
 ```bash
