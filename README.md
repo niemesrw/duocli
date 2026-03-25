@@ -44,27 +44,22 @@ uv run duo update-app --ikey DIXXX --json '{"name":"New"}' # Update an app
 uv run duo delete-app --ikey DIXXXXXXXXXXXXXXXXXX          # Delete an app
 ```
 
-**Creating an OIDC app** (`sso-oidc-generic`) requires an `sso` block with non-obvious field shapes — use `--json`:
+**OIDC / SSO apps** — use the dedicated command (handles Duo's non-obvious payload shapes):
 
 ```bash
-uv run duo create-app --json '{
-  "name": "My App",
-  "type": "sso-oidc-generic",
-  "sso": {
-    "oidc_config": {
-      "grant_types": {"authorization_code": true},
-      "redirect_uris": ["https://myapp.example.com/oauth/callback"],
-      "scopes": [{"name": "openid"}]
-    }
-  }
-}'
+uv run duo create-oidc-app --name "My App" --redirect-uri https://myapp.example.com/callback
+uv run duo create-oidc-app --name "My App" --redirect-uri https://myapp.example.com/callback --dry-run
 ```
 
-Field format quirks (Duo API, not standard OIDC):
-- `grant_types` → dict `{"authorization_code": true}`, not an array
-- `scopes` → list of objects `[{"name": "openid"}]`, not strings
-- `email`/`profile` scopes require IdP→claim mappings — configure in Duo Admin Panel after creation
-- OIDC apps have no `secret_key`; auth uses PKCE
+Defaults: `authorization_code` grant, `openid`/`email`/`profile` scopes with common IdP claim mappings, `ALL_USERS` access. PKCE is enforced by Duo at the policy level for OIDC apps.
+
+<details>
+<summary>Advanced: raw JSON via <code>create-app --json</code></summary>
+
+The Duo API uses non-standard field shapes: `grant_types` is a dict (`{"authorization_code": true}`), `scopes` is a list of objects (`[{"name": "openid"}]`), and `email`/`profile` scopes require `idp_attribute_claim_mapping`. The `create-oidc-app` command handles all of this automatically.
+</details>
+
+> **OAuth 2.1 / OIDC** (`sso-oauth-server`) and **MCP** (`sso-oauth-server-mcp`) are newer Duo app types with mandatory PKCE, custom scopes, and M2M support. These can be created via `create-app --type sso-oauth-server` but grant types, redirect URIs, and scopes must be configured in the [Duo Admin Panel](https://admin.duosecurity.com) — the Admin API doesn't yet expose their OAuth config. See [Duo SSO OAuth Server docs](https://duo.com/docs/sso-oauth-server).
 
 ### Logs & Audit
 

@@ -136,11 +136,11 @@ def create_app(
     warn_secret_key()
 
 
-_OIDC_DEFAULT_SCOPES = [
+_OIDC_DEFAULT_SCOPES = (
     {"name": "openid"},
     {"name": "email", "idp_attribute_claim_mapping": [{"idp_attribute": "mail", "oidc_claim": "email"}]},
     {"name": "profile", "idp_attribute_claim_mapping": [{"idp_attribute": "displayname", "oidc_claim": "name"}]},
-]
+)
 
 _VALID_GRANT_TYPES = {"authorization_code", "client_credentials"}
 _VALID_USER_ACCESS = {"ALL_USERS", "PERMITTED_GROUPS", "NO_USERS"}
@@ -188,8 +188,9 @@ def create_oidc_app(
 ) -> None:
     """Create a Duo OIDC app (sso-oidc-generic) with sensible defaults.
 
-    Defaults to Authorization Code + PKCE, openid/email/profile scopes with
+    Defaults to authorization_code grant, openid/email/profile scopes with
     standard claim mappings, ALL_USERS access, and JIT provisioning (enroll_policy=allow).
+    PKCE is enforced by Duo at the policy level for OIDC apps — no payload config needed.
 
     \b
     Examples:
@@ -226,7 +227,7 @@ def create_oidc_app(
             "oidc_config": {
                 "grant_types": {gt: True for gt in grant_types},
                 "redirect_uris": list(redirect_uris),
-                "scopes": _OIDC_DEFAULT_SCOPES,
+                "scopes": list(_OIDC_DEFAULT_SCOPES),
             }
         },
     }
