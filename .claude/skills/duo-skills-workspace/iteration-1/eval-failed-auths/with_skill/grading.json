@@ -1,0 +1,30 @@
+{
+  "assertions": [
+    {
+      "text": "asks_about_credentials: Response asks where credentials are stored before providing a runnable command",
+      "passed": true,
+      "evidence": "Lines 11-14: 'If those are not set, where are your Duo Admin API credentials stored? Common options: AWS Secrets Manager, 1Password CLI, Environment / .env file' — this appears before the runnable command block, satisfying the assertion."
+    },
+    {
+      "text": "uses_auth_logs_command: Response mentions the auth-logs command",
+      "passed": true,
+      "evidence": "Line 21: 'uv run duocli auth-logs --since 7d ...' — the auth-logs command is explicitly used in the primary runnable command, and also referenced on line 30."
+    },
+    {
+      "text": "uses_since_7d: Response includes --since 7d time window",
+      "passed": true,
+      "evidence": "Line 21: 'uv run duocli auth-logs --since 7d ...' and line 30: 'uv run duocli --human auth-logs --since 7d' — --since 7d appears in multiple commands."
+    },
+    {
+      "text": "filters_for_failures: Response includes filtering or mention of FAILURE results",
+      "passed": true,
+      "evidence": "Line 22: \"if r.get('result')=='FAILURE'\" — explicit programmatic filter for FAILURE results. Line 25 also states: 'filters to only those where result == FAILURE'."
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "failed": 0,
+    "total": 4,
+    "pass_rate": 1.0
+  }
+}

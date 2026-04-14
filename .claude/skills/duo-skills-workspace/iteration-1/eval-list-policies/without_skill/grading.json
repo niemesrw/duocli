@@ -1,0 +1,25 @@
+{
+  "assertions": [
+    {
+      "text": "asks_about_credentials: Response asks where credentials are stored before providing a runnable command",
+      "passed": false,
+      "evidence": "The response mentions credentials and shows how to configure them in a prerequisites section, but it does not ask the user where credentials are stored. It assumes credentials need to be set and provides example exports, then immediately offers runnable commands."
+    },
+    {
+      "text": "uses_list_policies_command: Response mentions the list-policies command",
+      "passed": true,
+      "evidence": "The response includes 'uv run duocli list-policies' (line 25) and 'uv run duocli --human list-policies' (line 28) as example commands."
+    },
+    {
+      "text": "uses_human_flag: Response includes --human flag for readable output",
+      "passed": true,
+      "evidence": "The response explicitly shows 'uv run duocli --human list-policies' under the comment '# Human-readable table' on line 28."
+    }
+  ],
+  "summary": {
+    "passed": 2,
+    "failed": 1,
+    "total": 3,
+    "pass_rate": 0.6667
+  }
+}

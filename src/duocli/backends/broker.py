@@ -51,6 +51,24 @@ class BrokerBackend(DuoBackend):
     def update_integration(self, integration_key: str, **kwargs) -> dict:
         raise NotImplementedError(_NOT_IMPLEMENTED_MSG)
 
+    def get_user(self, username: str | None = None, user_id: str | None = None) -> dict:
+        raise NotImplementedError(_NOT_IMPLEMENTED_MSG)
+
+    def get_user_groups(self, user_id: str) -> list[dict]:
+        raise NotImplementedError(_NOT_IMPLEMENTED_MSG)
+
+    def get_user_devices(self, user_id: str) -> dict:
+        raise NotImplementedError(_NOT_IMPLEMENTED_MSG)
+
+    def calculate_policy(self, integration_key: str, user_id: str) -> dict:
+        raise NotImplementedError(_NOT_IMPLEMENTED_MSG)
+
+    def enroll_user(self, username: str, email: str, valid_secs: int | None = None) -> dict:
+        raise NotImplementedError(_NOT_IMPLEMENTED_MSG)
+
+    def send_sms_activation(self, user_id: str, valid_secs: int | None = None) -> dict:
+        raise NotImplementedError(_NOT_IMPLEMENTED_MSG)
+
     def get_activity_logs(
         self, mintime: int, maxtime: int, limit: int = 500,
     ) -> list[dict]:

@@ -1,0 +1,25 @@
+{
+  "assertions": [
+    {
+      "text": "asks_about_credentials: Response asks where credentials are stored before providing a runnable command",
+      "passed": true,
+      "evidence": "Lines 5-9 check whether credentials are already set via a bash echo command, and lines 19-23 explicitly ask where credentials are stored if not set, listing AWS Secrets Manager, 1Password CLI, and environment/.env file options."
+    },
+    {
+      "text": "uses_admin_logs_command: Response mentions the admin-logs command",
+      "passed": true,
+      "evidence": "Line 14 contains the command `uv run duocli --human admin-logs --since 7d`, explicitly using the admin-logs subcommand."
+    },
+    {
+      "text": "uses_since_7d_for_week: Response includes --since 7d for the past week window",
+      "passed": true,
+      "evidence": "Line 14 contains `--since 7d` in the command `uv run duocli --human admin-logs --since 7d`, and line 17 confirms this covers 'the past 7 days'."
+    }
+  ],
+  "summary": {
+    "passed": 3,
+    "failed": 0,
+    "total": 3,
+    "pass_rate": 1.0
+  }
+}

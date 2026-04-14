@@ -1,0 +1,20 @@
+{
+  "eval_id": 5,
+  "eval_name": "tenant-overview",
+  "skill": "duo-health",
+  "prompt": "give me an overview of our duo tenant",
+  "assertions": [
+    {
+      "text": "asks_about_credentials: Response asks where credentials are stored before providing a runnable command",
+      "check": "grep -i -E '(where|how).*(credential|secret|key|stored|aws|1password|env)' response.md || grep -i -E '(credential|DUO_IKEY|DUO_SKEY).*(set|stored|configured)' response.md"
+    },
+    {
+      "text": "uses_info_summary_command: Response mentions the info-summary command",
+      "check": "grep -i 'info-summary' response.md"
+    },
+    {
+      "text": "suggests_multiple_commands: Response suggests multiple commands for a full overview",
+      "check": "grep -c 'duocli' response.md | awk '{exit ($1 >= 2) ? 0 : 1}'"
+    }
+  ]
+}

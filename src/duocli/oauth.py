@@ -9,7 +9,7 @@ Duo OAuth 2.1 apps use per-application endpoints:
     etc.
 
 Set DUO_OAUTH_BASE to the full base URL, e.g.:
-    https://sso-6832c11f.sso.duosecurity.com/oauth2/DIN37VVVNHYKEU8VKRE3
+    https://sso-XXXXXXXX.sso.duosecurity.com/oauth2/DIXXXXXXXXXXXXXXXXXX
 """
 from __future__ import annotations
 

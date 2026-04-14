@@ -1,0 +1,28 @@
+{
+  "eval_id": 0,
+  "eval_name": "create-oidc-app",
+  "skill": "duo-apps",
+  "prompt": "create a duo oidc app called Sales Dashboard with redirect URI https://sales.example.com/callback",
+  "assertions": [
+    {
+      "text": "asks_about_credentials: Response asks where credentials are stored before providing a runnable command",
+      "check": "grep -i -E '(where|how).*(credential|secret|key|stored|aws|1password|env)' response.md || grep -i -E '(credential|DUO_IKEY|DUO_SKEY).*(set|stored|configured)' response.md"
+    },
+    {
+      "text": "uses_create_oidc_app_command: Response mentions the create-oidc-app command",
+      "check": "grep -i 'create-oidc-app' response.md"
+    },
+    {
+      "text": "includes_name_flag: Response includes --name flag with the app name",
+      "check": "grep -i '\\-\\-name' response.md"
+    },
+    {
+      "text": "includes_redirect_uri_flag: Response includes --redirect-uri flag",
+      "check": "grep -i '\\-\\-redirect-uri' response.md"
+    },
+    {
+      "text": "recommends_dry_run: Response recommends --dry-run before creating",
+      "check": "grep -i '\\-\\-dry-run' response.md"
+    }
+  ]
+}

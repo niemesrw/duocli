@@ -955,3 +955,569 @@ class TestOAuthDiscover:
         data = json.loads(result.output)
         assert "issuer" in data
         assert "token_endpoint" in data
+
+
+class TestGetUser:
+    def test_get_user_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["get-user", "--help"])
+        assert result.exit_code == 0
+        assert "--username" in result.output
+        assert "--user-id" in result.output
+        assert "--fields" in result.output
+
+    def test_get_user_missing_both(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["get-user"])
+        assert result.exit_code != 0
+
+    def test_get_user_mutual_exclusion(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["get-user", "--username", "alice", "--user-id", "DUAAAAAAAAAAAAAAAAAAA"])
+        assert result.exit_code != 0
+
+    def test_get_user_rejects_bad_user_id(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["get-user", "--user-id", "BADID"])
+        assert result.exit_code != 0
+
+    def test_get_user_rejects_bad_username(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["get-user", "--username", "alice\x00@evil.com"])
+        assert result.exit_code != 0
+
+    def test_get_user_dry_run_username(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["get-user", "--username", "alice", "--dry-run"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["dry_run"] is True
+        assert data["params"]["username"] == "alice"
+
+    def test_get_user_dry_run_user_id(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["get-user", "--user-id", "DUAAAAAAAAAAAAAAAAAAA", "--dry-run"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["dry_run"] is True
+        assert data["params"]["user_id"] == "DUAAAAAAAAAAAAAAAAAAA"
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_get_user_success_by_username(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.get_user.return_value = {
+            "user_id": "DUAAAAAAAAAAAAAAAAAAA",
+            "username": "alice@example.com",
+            "email": "alice@example.com",
+            "realname": "Alice Smith",
+            "status": "active",
+            "is_enrolled": True,
+            "last_login": "2026-04-01T00:00:00+00:00",
+            "phones_count": 1,
+            "groups_count": 2,
+            "notes": "",
+        }
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["get-user", "--username", "alice@example.com"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["username"] == "alice@example.com"
+        assert data["status"] == "active"
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_get_user_success_by_id(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.get_user.return_value = {
+            "user_id": "DUAAAAAAAAAAAAAAAAAAA",
+            "username": "alice@example.com",
+            "email": "alice@example.com",
+            "realname": "Alice Smith",
+            "status": "active",
+            "is_enrolled": True,
+            "last_login": "2026-04-01T00:00:00+00:00",
+            "phones_count": 1,
+            "groups_count": 2,
+            "notes": "",
+        }
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["get-user", "--user-id", "DUAAAAAAAAAAAAAAAAAAA"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["user_id"] == "DUAAAAAAAAAAAAAAAAAAA"
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_get_user_not_found(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.get_user.return_value = {
+            "status": "error",
+            "message": "No user found with username: nobody",
+            "code": 40400,
+        }
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["get-user", "--username", "nobody"])
+        assert result.exit_code == 2
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_get_user_fields(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.get_user.return_value = {
+            "user_id": "DUAAAAAAAAAAAAAAAAAAA",
+            "username": "alice@example.com",
+            "status": "active",
+        }
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["get-user", "--username", "alice@example.com", "--fields", "username,status"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "username" in data
+        assert "status" in data
+        assert "user_id" not in data
+
+
+class TestAuthLogsUserFilter:
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_auth_logs_user_filter(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.get_authentication_logs.return_value = [
+            {"timestamp": "2026-04-01T00:00:00Z", "user": "alice@example.com",
+             "result": "success", "reason": "", "factor": "push",
+             "application": "VPN", "ip": "1.2.3.4"},
+            {"timestamp": "2026-04-01T00:01:00Z", "user": "bob@example.com",
+             "result": "denied", "reason": "user_disabled", "factor": "push",
+             "application": "VPN", "ip": "5.6.7.8"},
+        ]
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["auth-logs", "--since", "1h", "--user", "alice"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert len(data) == 1
+        assert data[0]["user"] == "alice@example.com"
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_auth_logs_user_filter_no_match(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.get_authentication_logs.return_value = [
+            {"timestamp": "2026-04-01T00:00:00Z", "user": "alice@example.com",
+             "result": "success", "reason": "", "factor": "push",
+             "application": "VPN", "ip": "1.2.3.4"},
+        ]
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["auth-logs", "--since", "1h", "--user", "nobody"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert len(data) == 0
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_auth_logs_user_filter_case_insensitive(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.get_authentication_logs.return_value = [
+            {"timestamp": "2026-04-01T00:00:00Z", "user": "Alice@Example.com",
+             "result": "success", "reason": "", "factor": "push",
+             "application": "VPN", "ip": "1.2.3.4"},
+        ]
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["auth-logs", "--since", "1h", "--user", "alice"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert len(data) == 1
+
+
+class TestGetUserGroups:
+    def test_get_user_groups_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["get-user-groups", "--help"])
+        assert result.exit_code == 0
+        assert "--user-id" in result.output
+        assert "--fields" in result.output
+
+    def test_get_user_groups_rejects_bad_id(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["get-user-groups", "--user-id", "BADID"])
+        assert result.exit_code != 0
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_get_user_groups_success(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.get_user_groups.return_value = [
+            {"group_id": "DGAAAAAAAAAAAAAAAAAAA", "name": "Engineering",
+             "description": "Engineering team", "status": "Active"},
+            {"group_id": "DGBBBBBBBBBBBBBBBBBBB", "name": "VPN Users",
+             "description": "VPN access group", "status": "Active"},
+        ]
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["get-user-groups", "--user-id", "DUAAAAAAAAAAAAAAAAAAA"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert len(data) == 2
+        assert data[0]["name"] == "Engineering"
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_get_user_groups_error(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.get_user_groups.return_value = [
+            {"status": "error", "message": "User not found", "code": 50000},
+        ]
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["get-user-groups", "--user-id", "DUAAAAAAAAAAAAAAAAAAA"])
+        assert result.exit_code == 2
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_get_user_groups_fields(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.get_user_groups.return_value = [
+            {"group_id": "DGAAAAAAAAAAAAAAAAAAA", "name": "Engineering",
+             "description": "Engineering team", "status": "Active"},
+        ]
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["get-user-groups", "--user-id", "DUAAAAAAAAAAAAAAAAAAA",
+                                     "--fields", "name,group_id"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "name" in data[0]
+        assert "description" not in data[0]
+
+
+class TestGetUserDevices:
+    def test_get_user_devices_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["get-user-devices", "--help"])
+        assert result.exit_code == 0
+        assert "--user-id" in result.output
+
+    def test_get_user_devices_rejects_bad_id(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["get-user-devices", "--user-id", "BADID"])
+        assert result.exit_code != 0
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_get_user_devices_success(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.get_user_devices.return_value = {
+            "user_id": "DUAAAAAAAAAAAAAAAAAAA",
+            "phones": [
+                {"type": "phone", "device_id": "DPAAAAAAAAAAAAAAAAAAA",
+                 "name": "iPhone", "number": "+15551234567",
+                 "platform": "Apple iOS", "activated": True},
+            ],
+            "tokens": [],
+            "webauthn": [
+                {"type": "webauthn", "credential_name": "YubiKey",
+                 "date_added": "2026-01-15T00:00:00+00:00", "label": "Office key"},
+            ],
+            "total_devices": 2,
+        }
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["get-user-devices", "--user-id", "DUAAAAAAAAAAAAAAAAAAA"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["total_devices"] == 2
+        assert len(data["phones"]) == 1
+        assert len(data["webauthn"]) == 1
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_get_user_devices_empty(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.get_user_devices.return_value = {
+            "user_id": "DUAAAAAAAAAAAAAAAAAAA",
+            "phones": [],
+            "tokens": [],
+            "webauthn": [],
+            "total_devices": 0,
+        }
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["get-user-devices", "--user-id", "DUAAAAAAAAAAAAAAAAAAA"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["total_devices"] == 0
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_get_user_devices_error(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.get_user_devices.return_value = {
+            "status": "error", "message": "User not found", "code": 50000,
+        }
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["get-user-devices", "--user-id", "DUAAAAAAAAAAAAAAAAAAA"])
+        assert result.exit_code == 2
+
+
+class TestEnrollUser:
+    def test_enroll_user_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["enroll-user", "--help"])
+        assert result.exit_code == 0
+        assert "--username" in result.output
+        assert "--email" in result.output
+        assert "--valid-secs" in result.output
+
+    def test_enroll_user_missing_username(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["enroll-user", "--email", "alice@example.com"])
+        assert result.exit_code != 0
+
+    def test_enroll_user_missing_email(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["enroll-user", "--username", "alice"])
+        assert result.exit_code != 0
+
+    def test_enroll_user_rejects_bad_email(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["enroll-user", "--username", "alice", "--email", "not-an-email"])
+        assert result.exit_code != 0
+
+    def test_enroll_user_rejects_bad_username(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["enroll-user", "--username", "alice\x00", "--email", "alice@example.com"])
+        assert result.exit_code != 0
+
+    def test_enroll_user_dry_run(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["enroll-user", "--username", "alice", "--email", "alice@example.com", "--dry-run"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["dry_run"] is True
+        assert data["action"] == "enroll_user"
+        assert data["params"]["username"] == "alice"
+        assert data["params"]["email"] == "alice@example.com"
+        assert "valid_secs" not in data["params"]
+
+    def test_enroll_user_dry_run_with_valid_secs(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["enroll-user", "--username", "alice", "--email", "alice@example.com",
+                                     "--valid-secs", "86400", "--dry-run"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["params"]["valid_secs"] == 86400
+
+    def test_enroll_user_dry_run_strips_email_domain_from_username(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["enroll-user", "--username", "alice@example.com",
+                                     "--email", "alice@example.com", "--dry-run"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["params"]["username"] == "alice"
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_enroll_user_success(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.enroll_user.return_value = {
+            "status": "ok", "username": "alice", "email": "alice@example.com",
+            "enrollment_code": "abc123def456",
+            "enrollment_url": "",
+        }
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["enroll-user", "--username", "alice", "--email", "alice@example.com"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["status"] == "ok"
+        assert data["username"] == "alice"
+        assert "enrollment_code" in data
+        mock_backend.enroll_user.assert_called_once_with(username="alice", email="alice@example.com", valid_secs=None)
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_enroll_user_success_with_valid_secs(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.enroll_user.return_value = {
+            "status": "ok", "username": "alice", "email": "alice@example.com",
+            "enrollment_code": "abc123def456",
+            "enrollment_url": "",
+        }
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["enroll-user", "--username", "alice", "--email", "alice@example.com",
+                                     "--valid-secs", "86400"])
+        assert result.exit_code == 0
+        mock_backend.enroll_user.assert_called_once_with(username="alice", email="alice@example.com", valid_secs=86400)
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_enroll_user_error(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.enroll_user.return_value = {
+            "status": "error", "message": "User already enrolled", "code": 50000,
+        }
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["enroll-user", "--username", "alice", "--email", "alice@example.com"])
+        assert result.exit_code == 2
+
+
+class TestSendActivation:
+    def test_send_activation_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["send-activation", "--help"])
+        assert result.exit_code == 0
+        assert "--user-id" in result.output
+        assert "--valid-secs" in result.output
+
+    def test_send_activation_missing_user_id(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["send-activation"])
+        assert result.exit_code != 0
+
+    def test_send_activation_rejects_bad_user_id(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["send-activation", "--user-id", "BADID"])
+        assert result.exit_code != 0
+
+    def test_send_activation_dry_run(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["send-activation", "--user-id", "DUAAAAAAAAAAAAAAAAAAA", "--dry-run"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["dry_run"] is True
+        assert data["action"] == "send_sms_activation"
+        assert data["params"]["user_id"] == "DUAAAAAAAAAAAAAAAAAAA"
+        assert "valid_secs" not in data["params"]
+
+    def test_send_activation_dry_run_with_valid_secs(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["send-activation", "--user-id", "DUAAAAAAAAAAAAAAAAAAA",
+                                     "--valid-secs", "3600", "--dry-run"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["params"]["valid_secs"] == 3600
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_send_activation_success(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.send_sms_activation.return_value = {
+            "status": "ok",
+            "user_id": "DUAAAAAAAAAAAAAAAAAAA",
+            "phone_id": "DPAAAAAAAAAAAAAAAAAAA",
+            "number": "+15551234567",
+            "activation_msg": "To activate Duo Mobile, click: https://m-xxxx.duosecurity.com/activate/abc123",
+            "installation_msg": "To install Duo Mobile, click: https://m-xxxx.duosecurity.com",
+            "valid_secs": 86400,
+        }
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["send-activation", "--user-id", "DUAAAAAAAAAAAAAAAAAAA"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["status"] == "ok"
+        assert data["phone_id"] == "DPAAAAAAAAAAAAAAAAAAA"
+        assert data["number"] == "+15551234567"
+        mock_backend.send_sms_activation.assert_called_once_with(user_id="DUAAAAAAAAAAAAAAAAAAA", valid_secs=None)
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_send_activation_no_phones(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.send_sms_activation.return_value = {
+            "status": "error",
+            "message": "User DUAAAAAAAAAAAAAAAAAAA has no phones — add a phone before sending SMS activation",
+            "code": 40400,
+        }
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["send-activation", "--user-id", "DUAAAAAAAAAAAAAAAAAAA"])
+        assert result.exit_code == 2
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_send_activation_error(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.send_sms_activation.return_value = {
+            "status": "error", "message": "API error", "code": 50000,
+        }
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["send-activation", "--user-id", "DUAAAAAAAAAAAAAAAAAAA"])
+        assert result.exit_code == 2
+
+
+class TestExplainPolicy:
+    def test_explain_policy_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["explain-policy", "--help"])
+        assert result.exit_code == 0
+        assert "--ikey" in result.output
+        assert "--user-id" in result.output
+
+    def test_explain_policy_rejects_bad_ikey(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["explain-policy", "--ikey", "BADKEY", "--user-id", "DUAAAAAAAAAAAAAAAAAAA"])
+        assert result.exit_code != 0
+
+    def test_explain_policy_rejects_bad_user_id(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["explain-policy", "--ikey", "DIAAAAAAAAAAAAAAAAAAA", "--user-id", "BADID"])
+        assert result.exit_code != 0
+
+    def test_explain_policy_dry_run(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["explain-policy",
+                                     "--ikey", "DIAAAAAAAAAAAAAAAAAAA",
+                                     "--user-id", "DUAAAAAAAAAAAAAAAAAAA",
+                                     "--dry-run"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["dry_run"] is True
+        assert data["params"]["integration_key"] == "DIAAAAAAAAAAAAAAAAAAA"
+        assert data["params"]["user_id"] == "DUAAAAAAAAAAAAAAAAAAA"
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_explain_policy_success(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.calculate_policy.return_value = {
+            "policy_key": "PKAAAAAAAAAAAAAAAAAAA",
+            "policy_name": "Corporate VPN Policy",
+            "sections": {
+                "authentication_methods": {"allowed_auth_list": ["push", "webauthn"]},
+                "browsers": {"blocked_browsers_list": []},
+            },
+        }
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["explain-policy",
+                                     "--ikey", "DIAAAAAAAAAAAAAAAAAAA",
+                                     "--user-id", "DUAAAAAAAAAAAAAAAAAAA"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["policy_name"] == "Corporate VPN Policy"
+
+    @patch("duocli.cli.load_dotenv")
+    @patch("duocli.cli.get_backend")
+    def test_explain_policy_error(self, mock_get_backend, mock_dotenv):
+        mock_backend = MagicMock()
+        mock_backend.calculate_policy.return_value = {
+            "status": "error", "message": "Integration not found", "code": 50000,
+        }
+        mock_get_backend.return_value = mock_backend
+        runner = CliRunner()
+        result = runner.invoke(cli, ["explain-policy",
+                                     "--ikey", "DIAAAAAAAAAAAAAAAAAAA",
+                                     "--user-id", "DUAAAAAAAAAAAAAAAAAAA"])
+        assert result.exit_code == 2

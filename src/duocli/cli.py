@@ -20,7 +20,7 @@ from duocli.output import (
     format_json,
     warn_secret_key,
 )
-from duocli.validate import validate_integration_key, validate_name, validate_type
+from duocli.validate import validate_email, validate_integration_key, validate_name, validate_type, validate_user_id, validate_username
 
 
 _VALID_UPDATE_KEYS = frozenset({
@@ -350,9 +350,10 @@ def info_summary(ctx: click.Context) -> None:
     default="24h",
     help="Time window: e.g. 1h, 6h, 7d, 30d. Default: 24h.",
 )
+@click.option("--user", default=None, help="Filter by username (case-insensitive substring match).")
 @click.option("--fields", default=None, help="Comma-separated list of fields to include in output.")
 @click.pass_context
-def auth_logs(ctx: click.Context, since: str, fields: str | None) -> None:
+def auth_logs(ctx: click.Context, since: str, user: str | None, fields: str | None) -> None:
     """Show authentication log events."""
     backend = get_backend()
     now_ms = int(time.time() * 1000)
@@ -363,6 +364,10 @@ def auth_logs(ctx: click.Context, since: str, fields: str | None) -> None:
     if _is_error_list(results):
         format_error(results[0])
         sys.exit(2)
+
+    if user:
+        user_lower = user.lower()
+        results = [r for r in results if user_lower in r.get("user", "").lower()]
 
     _output_list(ctx, results, fields,
                  default_columns=["timestamp", "user", "result", "factor", "application", "ip"])
@@ -550,6 +555,219 @@ def trust_monitor(ctx: click.Context, since: str, limit: int, fields: str | None
                  default_columns=["timestamp", "type", "priority", "description"])
 
 
+@cli.command("get-user")
+@click.option(
+    "--username",
+    default=None,
+    cls=_MutuallyExclusiveOption,
+    mutually_exclusive=["user_id"],
+    help="Duo username to look up.",
+)
+@click.option(
+    "--user-id",
+    default=None,
+    cls=_MutuallyExclusiveOption,
+    mutually_exclusive=["username"],
+    help="Duo user ID (DU...) to look up.",
+)
+@click.option("--fields", default=None, help="Comma-separated list of fields to include in output.")
+@click.option("--dry-run", is_flag=True, help="Validate inputs and show what would happen without calling API.")
+@click.pass_context
+def get_user(
+    ctx: click.Context,
+    username: str | None,
+    user_id: str | None,
+    fields: str | None,
+    dry_run: bool,
+) -> None:
+    """Look up a Duo user by username or user ID."""
+    if not username and not user_id:
+        format_error({
+            "status": "error",
+            "message": "Either --username or --user-id is required",
+            "code": 10000,
+        })
+        sys.exit(1)
+
+    if user_id:
+        validate_user_id(user_id)
+    if username:
+        validate_username(username)
+
+    if dry_run:
+        params = {"username": username} if username else {"user_id": user_id}
+        format_json({"dry_run": True, "action": "get_user", "params": params})
+        return
+
+    backend = get_backend()
+    result = backend.get_user(username=username, user_id=user_id)
+
+    if result.get("status") == "error":
+        format_error(result)
+        sys.exit(2)
+
+    if fields:
+        field_list = [f.strip() for f in fields.split(",")]
+        result = _filter_fields_single(result, field_list)
+
+    if ctx.obj["human"]:
+        format_human_single(result)
+    else:
+        format_json(result)
+
+
+@cli.command("get-user-groups")
+@click.option("--user-id", required=True, help="Duo user ID (DU...).")
+@click.option("--fields", default=None, help="Comma-separated list of fields to include in output.")
+@click.pass_context
+def get_user_groups(ctx: click.Context, user_id: str, fields: str | None) -> None:
+    """List groups for a Duo user."""
+    validate_user_id(user_id)
+
+    backend = get_backend()
+    results = backend.get_user_groups(user_id=user_id)
+
+    if _is_error_list(results):
+        format_error(results[0])
+        sys.exit(2)
+
+    _output_list(ctx, results, fields,
+                 default_columns=["group_id", "name", "description", "status"])
+
+
+@cli.command("get-user-devices")
+@click.option("--user-id", required=True, help="Duo user ID (DU...).")
+@click.pass_context
+def get_user_devices(ctx: click.Context, user_id: str) -> None:
+    """List phones, tokens, and WebAuthn credentials for a Duo user."""
+    validate_user_id(user_id)
+
+    backend = get_backend()
+    result = backend.get_user_devices(user_id=user_id)
+
+    if result.get("status") == "error":
+        format_error(result)
+        sys.exit(2)
+
+    if ctx.obj["human"]:
+        format_human_single(result)
+    else:
+        format_json(result)
+
+
+@cli.command("enroll-user")
+@click.option("--username", required=True, help="Duo username (or email — domain is stripped automatically).")
+@click.option("--email", required=True, help="Email address to send the enrollment link to.")
+@click.option("--valid-secs", type=int, default=None, help="Seconds before the enrollment link expires (0 = never).")
+@click.option("--dry-run", is_flag=True, help="Validate inputs and show what would happen without calling API.")
+@click.pass_context
+def enroll_user(
+    ctx: click.Context,
+    username: str,
+    email: str,
+    valid_secs: int | None,
+    dry_run: bool,
+) -> None:
+    """Send a Duo enrollment email to a user."""
+    username = validate_username(username)
+    validate_email(email)
+
+    if dry_run:
+        params: dict = {"username": username, "email": email}
+        if valid_secs is not None:
+            params["valid_secs"] = valid_secs
+        format_json({"dry_run": True, "action": "enroll_user", "params": params})
+        return
+
+    backend = get_backend()
+    result = backend.enroll_user(username=username, email=email, valid_secs=valid_secs)
+
+    if result.get("status") == "error":
+        format_error(result)
+        sys.exit(2)
+
+    if ctx.obj["human"]:
+        format_human_single(result)
+    else:
+        format_json(result)
+
+
+@cli.command("send-activation")
+@click.option("--user-id", required=True, help="Duo user ID (DU...).")
+@click.option("--valid-secs", type=int, default=None, help="Seconds before the activation link expires. Default: 86400 (1 day).")
+@click.option("--dry-run", is_flag=True, help="Validate inputs and show what would happen without calling API.")
+@click.pass_context
+def send_activation(
+    ctx: click.Context,
+    user_id: str,
+    valid_secs: int | None,
+    dry_run: bool,
+) -> None:
+    """Send Duo Mobile activation SMS to a user's phone.
+
+    Looks up the user's first phone and sends an SMS with a Duo Mobile
+    activation link plus an install link. The phone must already be
+    associated with the user (added during enrollment or by an admin).
+    """
+    validate_user_id(user_id)
+
+    if dry_run:
+        params: dict = {"user_id": user_id}
+        if valid_secs is not None:
+            params["valid_secs"] = valid_secs
+        format_json({"dry_run": True, "action": "send_sms_activation", "params": params})
+        return
+
+    backend = get_backend()
+    result = backend.send_sms_activation(user_id=user_id, valid_secs=valid_secs)
+
+    if result.get("status") == "error":
+        format_error(result)
+        sys.exit(2)
+
+    if ctx.obj["human"]:
+        format_human_single(result)
+    else:
+        format_json(result)
+
+
+@cli.command("explain-policy")
+@click.option("--ikey", required=True, help="Integration key of the app.")
+@click.option("--user-id", required=True, help="Duo user ID (DU...).")
+@click.option("--dry-run", is_flag=True, help="Validate inputs and show what would happen without calling API.")
+@click.pass_context
+def explain_policy(
+    ctx: click.Context, ikey: str, user_id: str, dry_run: bool,
+) -> None:
+    """Calculate the effective policy for a user and application.
+
+    Shows which policy rules apply when this user authenticates to this app,
+    including the resolved policy from global, group, and app-level settings.
+    """
+    validate_integration_key(ikey)
+    validate_user_id(user_id)
+
+    if dry_run:
+        format_json({
+            "dry_run": True,
+            "action": "calculate_policy",
+            "params": {"integration_key": ikey, "user_id": user_id},
+        })
+        return
+
+    backend = get_backend()
+    result = backend.calculate_policy(integration_key=ikey, user_id=user_id)
+
+    if result.get("status") == "error":
+        format_error(result)
+        sys.exit(2)
+
+    if ctx.obj["human"]:
+        format_human_single(result)
+    else:
+        format_json(result)
+
+
 @cli.command("schema")
 @click.argument("command_name")
 @click.pass_context
@@ -601,15 +819,14 @@ def _get_oauth_client() -> OAuthClient:
 @cli.command("oauth-token")
 @click.option("--scope", default="agent:call", help="Space-separated scopes to request. Default: agent:call.")
 @click.option("--client-id", default=None, help="Override DUO_OAUTH_CLIENT_ID env var.")
-@click.option("--client-secret", default=None, help="Override DUO_OAUTH_CLIENT_SECRET env var.")
 @click.pass_context
-def oauth_token(ctx: click.Context, scope: str, client_id: str | None, client_secret: str | None) -> None:
+def oauth_token(ctx: click.Context, scope: str, client_id: str | None) -> None:
     """Exchange client credentials for an OAuth 2.1 access token."""
     client = _get_oauth_client()
     cid = client_id or client.client_id
-    csec = client_secret or client.client_secret
+    csec = client.client_secret
     if not cid or not csec:
-        format_error({"status": "error", "message": "Client ID and secret are required (via --client-id/--client-secret or DUO_OAUTH_CLIENT_ID/DUO_OAUTH_CLIENT_SECRET)", "code": 10000})
+        format_error({"status": "error", "message": "Client ID and secret are required (via --client-id or DUO_OAUTH_CLIENT_ID, and DUO_OAUTH_CLIENT_SECRET env var)", "code": 10000})
         sys.exit(1)
     result = client.get_token(client_id=cid, client_secret=csec, scope=scope)
     if result.get("status") == "error":

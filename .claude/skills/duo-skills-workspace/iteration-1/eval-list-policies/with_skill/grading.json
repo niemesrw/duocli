@@ -1,0 +1,25 @@
+{
+  "assertions": [
+    {
+      "text": "asks_about_credentials: Response asks where credentials are stored before providing a runnable command",
+      "passed": true,
+      "evidence": "The response first checks credential availability with a bash echo command, then conditionally provides the runnable command only 'If credentials are set'. It explicitly asks 'where are your Duo Admin API credentials stored?' if credentials are not set, listing AWS Secrets Manager, 1Password CLI, and .env file as options."
+    },
+    {
+      "text": "uses_list_policies_command: Response mentions the list-policies command",
+      "passed": true,
+      "evidence": "The response mentions 'list-policies' multiple times: 'uv run duocli --human list-policies', 'uv run duocli list-policies --fields name,policy_key', and \"I'll run `list-policies` and show you what's configured\"."
+    },
+    {
+      "text": "uses_human_flag: Response includes --human flag for readable output",
+      "passed": true,
+      "evidence": "Line 12 shows 'uv run duocli --human list-policies' and the response notes 'This will return all Duo policies with their settings in a readable table'."
+    }
+  ],
+  "summary": {
+    "passed": 3,
+    "failed": 0,
+    "total": 3,
+    "pass_rate": 1.0
+  }
+}

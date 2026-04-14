@@ -1,0 +1,30 @@
+{
+  "assertions": [
+    {
+      "text": "asks_about_credentials: Response asks where credentials are stored before providing a runnable command",
+      "passed": true,
+      "evidence": "Line 13: 'If credentials are not set, I'll need to know where they're stored (AWS Secrets Manager, 1Password, or .env file) before proceeding.' The credential check (Step 1) also precedes any runnable delete command."
+    },
+    {
+      "text": "uses_delete_app_command: Response mentions the delete-app command",
+      "passed": true,
+      "evidence": "Lines 30 and 38 both include 'uv run duocli delete-app --ikey DI1234567890ABCDEF' (with and without --dry-run). Line 43 also references 'delete-app' by name in the warning."
+    },
+    {
+      "text": "recommends_dry_run_before_delete: Response recommends --dry-run before the destructive delete",
+      "passed": true,
+      "evidence": "Step 3 (line 27-31) explicitly instructs running 'uv run duocli delete-app --ikey DI1234567890ABCDEF --dry-run' before the final delete in Step 4, and the skill note states 'the skill recommends this before any destructive operation'."
+    },
+    {
+      "text": "includes_ikey_flag: Response includes --ikey flag",
+      "passed": true,
+      "evidence": "Lines 20, 30, and 38 all include '--ikey DI1234567890ABCDEF' in the commands."
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "failed": 0,
+    "total": 4,
+    "pass_rate": 1.0
+  }
+}

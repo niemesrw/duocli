@@ -1,0 +1,25 @@
+{
+  "assertions": [
+    {
+      "text": "asks_about_credentials: Response asks where credentials are stored before providing a runnable command",
+      "passed": false,
+      "evidence": "The response does not ask about credentials at all. It immediately suggests commands like `uv run duocli --human auth-logs` without first inquiring about where credentials are stored or how they are configured."
+    },
+    {
+      "text": "uses_admin_logs_command: Response mentions the admin-logs command",
+      "passed": true,
+      "evidence": "The response mentions `admin-logs` near the end: 'I can help you scaffold a new `admin-logs` command using the `/new-command` skill'. It references the command by name, though not as a runnable invocation."
+    },
+    {
+      "text": "uses_since_7d_for_week: Response includes --since 7d for the past week window",
+      "passed": false,
+      "evidence": "The response never uses the `--since 7d` flag syntax. It mentions '7 days ago' conceptually and provides a Python snippet to compute a Unix timestamp (`int(time.time()) - (7 * 24 * 60 * 60)`), but does not include `--since 7d` anywhere."
+    }
+  ],
+  "summary": {
+    "passed": 1,
+    "failed": 2,
+    "total": 3,
+    "pass_rate": 0.333
+  }
+}

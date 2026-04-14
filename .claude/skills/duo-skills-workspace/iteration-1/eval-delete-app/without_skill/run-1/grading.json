@@ -1,0 +1,30 @@
+{
+  "assertions": [
+    {
+      "text": "asks_about_credentials: Response asks where credentials are stored before providing a runnable command",
+      "passed": false,
+      "evidence": "The response immediately provides a runnable command (`uv run duocli delete-app --ikey DI1234567890ABCDEF`) without first asking about credentials. Credentials are mentioned afterward as an environment setup note, not as a prerequisite question."
+    },
+    {
+      "text": "uses_delete_app_command: Response mentions the delete-app command",
+      "passed": true,
+      "evidence": "The response explicitly uses the `delete-app` command: `uv run duocli delete-app --ikey DI1234567890ABCDEF`"
+    },
+    {
+      "text": "recommends_dry_run_before_delete: Response recommends --dry-run before the destructive delete",
+      "passed": false,
+      "evidence": "The response does not mention `--dry-run` at all. While it does include a warning that the action is irreversible, it never recommends using `--dry-run` as a safety check before executing the delete."
+    },
+    {
+      "text": "includes_ikey_flag: Response includes --ikey flag",
+      "passed": true,
+      "evidence": "The response includes `--ikey DI1234567890ABCDEF` in both command examples shown."
+    }
+  ],
+  "summary": {
+    "passed": 2,
+    "failed": 2,
+    "total": 4,
+    "pass_rate": 0.5
+  }
+}

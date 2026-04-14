@@ -1,0 +1,25 @@
+{
+  "assertions": [
+    {
+      "text": "asks_about_credentials: Response asks where credentials are stored before providing a runnable command",
+      "passed": true,
+      "evidence": "Line 1 opens with credential confirmation ('let me confirm your credentials are loaded'), line 7 explicitly asks 'let me know where your Duo Admin API credentials are stored — AWS Secrets Manager, 1Password, or a local `.env` file', and line 32 closes with 'Are your credentials already set, or do you need help loading them first?' — all before or alongside the runnable commands."
+    },
+    {
+      "text": "uses_info_summary_command: Response mentions the info-summary command",
+      "passed": true,
+      "evidence": "Line 13 includes 'uv run duocli --human info-summary' and line 27 references '**info-summary**' in the explanation section."
+    },
+    {
+      "text": "suggests_multiple_commands: Response suggests multiple duocli commands for a full overview (at least 2)",
+      "passed": true,
+      "evidence": "The response suggests four duocli commands: 'info-summary' (line 13), 'auth-stats --since 7d' (line 16), 'list-policies' (line 19), and 'trust-monitor --since 7d' (line 22)."
+    }
+  ],
+  "summary": {
+    "passed": 3,
+    "failed": 0,
+    "total": 3,
+    "pass_rate": 1.0
+  }
+}
