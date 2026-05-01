@@ -138,8 +138,8 @@ def create_app(
 
 _OIDC_DEFAULT_SCOPES = (
     {"name": "openid"},
-    {"name": "email", "idp_attribute_claim_mapping": [{"idp_attribute": "mail", "oidc_claim": "email"}]},
-    {"name": "profile", "idp_attribute_claim_mapping": [{"idp_attribute": "displayname", "oidc_claim": "name"}]},
+    {"name": "email", "claims": [{"name": "email", "idp_attribute": "<Email Address>"}]},
+    {"name": "profile", "claims": [{"name": "name", "idp_attribute": "<Display Name>"}]},
 )
 
 _VALID_GRANT_TYPES = {"authorization_code", "client_credentials"}

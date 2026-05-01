@@ -56,7 +56,7 @@ Defaults: `authorization_code` grant, `openid`/`email`/`profile` scopes with com
 <details>
 <summary>Advanced: raw JSON via <code>create-app --json</code></summary>
 
-The Duo API uses non-standard field shapes: `grant_types` is a dict (`{"authorization_code": true}`), `scopes` is a list of objects (`[{"name": "openid"}]`), and `email`/`profile` scopes require `idp_attribute_claim_mapping`. The `create-oidc-app` command handles all of this automatically.
+The Duo API uses non-standard field shapes: `grant_types` is a dict (`{"authorization_code": true}`), `scopes` is a list of objects (`[{"name": "openid"}]`), and `email`/`profile` scopes require a `claims` array with Duo's angle-bracket canonical attribute names (e.g. `[{"name": "email", "idp_attribute": "<Email Address>"}]`). Duo silently ignores incorrectly-named fields (like `idp_attribute_claim_mapping`) — the API call returns 200 but the claim won't resolve at runtime. The `create-oidc-app` command handles all of this automatically.
 </details>
 
 > **OAuth 2.1 / OIDC** (`sso-oauth-server`) and **MCP** (`sso-oauth-server-mcp`) are newer Duo app types with mandatory PKCE, custom scopes, and M2M support. These can be created via `create-app --type sso-oauth-server` but grant types, redirect URIs, and scopes must be configured in the [Duo Admin Panel](https://admin.duosecurity.com) — the Admin API doesn't yet expose their OAuth config. See [Duo SSO OAuth Server docs](https://duo.com/docs/sso-oauth-server).
