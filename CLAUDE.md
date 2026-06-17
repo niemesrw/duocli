@@ -11,12 +11,32 @@ export DUO_SKEY=your_secret_key
 export DUO_HOST=api-XXXXXXXX.duosecurity.com
 
 # Run
-uv run duo create-app --name "My App" --type websdk
-uv run duo --human list-apps
+uv run duocli create-app --name "My App" --type websdk
+uv run duocli --human list-apps
 
 # Tests
 uv run pytest tests/ -v
 ```
+
+## Credential sources (verified)
+
+Load credentials inline so they persist for the duration of the command:
+
+```bash
+SECRET=$(aws secretsmanager get-secret-value \
+  --secret-id <secret-id> --profile <profile> \
+  --query SecretString --output text)
+DUO_IKEY=$(echo "$SECRET" | jq -r .ikey) \
+DUO_SKEY=$(echo "$SECRET" | jq -r .skey) \
+DUO_HOST=$(echo "$SECRET" | jq -r .api_hostname) \
+uv run duocli --human list-apps
+```
+
+| Environment | AWS profile | Secret ID | Field names | Notes |
+|-------------|-------------|-----------|-------------|-------|
+| Security (prod) | `<aws-profile>` | `<secret-id>` | `ikey`, `skey`, `api_hostname` | Full read access |
+| Security (prod) | `<aws-profile>` | `<secret-id>` | `integrationKey`, `secretKey`, `apiHostname` | Alternate key names |
+| Dev | `<aws-profile>` | `<secret-id>` | `integrationKey`, `secretKey`, `apiHostname` | May require additional permissions |
 
 ## Architecture
 
@@ -38,7 +58,7 @@ All commands in `cli.py` follow: validate inputs → check `--dry-run` → `get_
 - **Success**: JSON to stdout (default) or human-readable table/key-value with `--human`
 - **Errors**: Always JSON to stdout + diagnostic to stderr, even with `--human`
 - **Exit codes**: `0` success, `1` input/validation/credential error, `2` API error
-- **`--human` goes before the subcommand**: `uv run duo --human list-apps` (not after)
+- **`--human` goes before the subcommand**: `uv run duocli --human list-apps` (not after)
 
 ## Key conventions
 
@@ -72,9 +92,9 @@ def test_something(mock_backend, mock_dotenv):
 
 ```
 src/duocli/
-├── cli.py              # Click group + all 14 commands
+├── cli.py              # Click group + all 18 commands
 ├── output.py           # format_json, format_error, format_human_list/single
-├── validate.py         # validate_integration_key, validate_name, validate_type
+├── validate.py         # validate_integration_key, validate_name, validate_type, validate_user_id, validate_username
 └── backends/
     ├── __init__.py     # get_backend() factory
     ├── base.py         # DuoBackend ABC
@@ -100,7 +120,8 @@ templates/                   # Secret store IaC templates
 │   ├── test-command/        # Run tests for a specific command by name
 │   ├── duo-audit/           # Investigate auth logs and activity
 │   ├── duo-apps/            # Manage Duo integrations
-│   └── duo-health/          # Account overview, policies, stats
+│   ├── duo-health/          # Account overview, policies, stats
+│   └── duo-investigate/     # Troubleshoot blocked/denied users
 └── agents/
     └── security-reviewer.md # Review credential handling and validation
 ```
@@ -128,6 +149,7 @@ Or use the `/new-command` skill for a guided walkthrough.
 - `duo-audit` — investigate auth logs, admin activity, trust monitor
 - `duo-apps` — create, list, update, delete integrations
 - `duo-health` — account summary, policies, auth stats
+- `duo-investigate` — troubleshoot blocked/denied users (user lookup, device enrollment, policy trace)
 
 **Agents** (spawn for specialized review):
 - `security-reviewer` — reviews credential handling, validation, and secret store templates

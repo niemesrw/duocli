@@ -1,0 +1,61 @@
+{
+  "skill_name": "duo-skills",
+  "evals": [
+    {
+      "id": 0,
+      "name": "create-oidc-app",
+      "skill": "duo-apps",
+      "prompt": "create a duo oidc app called Sales Dashboard with redirect URI https://sales.example.com/callback",
+      "expected_output": "Claude asks where credentials are stored before running any command, then suggests the correct create-oidc-app command with --dry-run first.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "name": "delete-app",
+      "skill": "duo-apps",
+      "prompt": "delete the duo app with key DI1234567890ABCDEF",
+      "expected_output": "Claude asks where credentials are stored, recommends dry-run first, then shows the delete-app command.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "list-apps-with-fields",
+      "skill": "duo-apps",
+      "prompt": "list all our duo integrations and show the name and type",
+      "expected_output": "Claude asks where credentials are stored, then shows the correct list-apps command with --fields name,type.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "failed-auths",
+      "skill": "duo-audit",
+      "prompt": "show me all failed duo authentications from the last 7 days",
+      "expected_output": "Claude asks where credentials are stored, then shows auth-logs with --since 7d and filtering for FAILURE results.",
+      "files": []
+    },
+    {
+      "id": 4,
+      "name": "admin-changes",
+      "skill": "duo-audit",
+      "prompt": "what did admins change in duo this week",
+      "expected_output": "Claude asks where credentials are stored, then shows admin-logs with --since 7d.",
+      "files": []
+    },
+    {
+      "id": 5,
+      "name": "tenant-overview",
+      "skill": "duo-health",
+      "prompt": "give me an overview of our duo tenant",
+      "expected_output": "Claude asks where credentials are stored, then suggests running info-summary, auth-stats, list-policies in sequence.",
+      "files": []
+    },
+    {
+      "id": 6,
+      "name": "list-policies",
+      "skill": "duo-health",
+      "prompt": "what policies are configured in duo",
+      "expected_output": "Claude asks where credentials are stored, then shows the list-policies command with --human flag.",
+      "files": []
+    }
+  ]
+}

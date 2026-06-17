@@ -64,6 +64,36 @@ class DuoBackend(ABC):
         ...
 
     @abstractmethod
+    def get_user(self, username: str | None = None, user_id: str | None = None) -> dict:
+        """Get a user by username or user_id. Returns normalized result dict."""
+        ...
+
+    @abstractmethod
+    def get_user_groups(self, user_id: str) -> list[dict]:
+        """Get groups for a user. Returns list of normalized dicts."""
+        ...
+
+    @abstractmethod
+    def get_user_devices(self, user_id: str) -> dict:
+        """Get phones, tokens, and WebAuthn credentials for a user."""
+        ...
+
+    @abstractmethod
+    def calculate_policy(self, integration_key: str, user_id: str) -> dict:
+        """Calculate the effective policy for a user and integration."""
+        ...
+
+    @abstractmethod
+    def enroll_user(self, username: str, email: str, valid_secs: int | None = None) -> dict:
+        """Enroll a user and send them an enrollment email."""
+        ...
+
+    @abstractmethod
+    def send_sms_activation(self, user_id: str, valid_secs: int | None = None) -> dict:
+        """Send Duo Mobile activation SMS to a user's first phone."""
+        ...
+
+    @abstractmethod
     def get_activity_logs(
         self, mintime: int, maxtime: int, limit: int = 500,
     ) -> list[dict]:

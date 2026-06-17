@@ -1,0 +1,25 @@
+{
+  "assertions": [
+    {
+      "text": "asks_about_credentials: Response asks where credentials are stored before providing a runnable command",
+      "passed": false,
+      "evidence": "The response provides a runnable command immediately (line 6: 'uv run duocli list-apps | jq ...') without first asking about credentials. Credentials are mentioned at the end (lines 26-34) as a reminder, not as a question asked before providing commands."
+    },
+    {
+      "text": "uses_list_apps_command: Response mentions the list-apps command",
+      "passed": true,
+      "evidence": "The response explicitly references the 'list-apps' command in the prose ('you can use the `list-apps` command') and in both code blocks ('uv run duocli list-apps | jq ...' and 'uv run duocli --human list-apps')."
+    },
+    {
+      "text": "uses_fields_flag: Response includes --fields with name and type columns",
+      "passed": false,
+      "evidence": "The response does not use a '--fields' flag at all. Instead, it uses 'jq' to filter the JSON output: 'uv run duocli list-apps | jq '\\''[.[] | {name, type}]'\\'''. No '--fields name,type' or similar flag appears anywhere in the response."
+    }
+  ],
+  "summary": {
+    "passed": 1,
+    "failed": 2,
+    "total": 3,
+    "pass_rate": 0.3333333333333333
+  }
+}

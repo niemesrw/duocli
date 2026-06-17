@@ -1,0 +1,35 @@
+{
+  "assertions": [
+    {
+      "text": "asks_about_credentials: Response asks where credentials are stored before providing a runnable command",
+      "passed": false,
+      "evidence": "The response immediately provides a runnable command in the first code block (lines 5-9) and only mentions credentials afterward (lines 30-38). It never asks the user where their credentials are stored."
+    },
+    {
+      "text": "uses_create_oidc_app_command: Response mentions the create-oidc-app command",
+      "passed": true,
+      "evidence": "The response mentions 'create-oidc-app' in the opening sentence (line 3) and uses it in all three code block examples (lines 6, 16, 24)."
+    },
+    {
+      "text": "includes_name_flag: Response includes --name flag with the app name",
+      "passed": true,
+      "evidence": "All three code blocks include '--name \"Sales Dashboard\"' (lines 7, 17, 25)."
+    },
+    {
+      "text": "includes_redirect_uri_flag: Response includes --redirect-uri flag",
+      "passed": true,
+      "evidence": "All three code blocks include '--redirect-uri \"https://sales.example.com/callback\"' (lines 8, 18, 26)."
+    },
+    {
+      "text": "recommends_dry_run: Response recommends --dry-run before creating",
+      "passed": true,
+      "evidence": "The response has a dedicated section recommending --dry-run: 'To preview what would be created without making any changes, use --dry-run' (lines 21-28)."
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "failed": 1,
+    "total": 5,
+    "pass_rate": 0.8
+  }
+}

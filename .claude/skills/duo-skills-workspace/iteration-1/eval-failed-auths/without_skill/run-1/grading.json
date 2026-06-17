@@ -1,0 +1,30 @@
+{
+  "assertions": [
+    {
+      "text": "asks_about_credentials: Response asks where credentials are stored before providing a runnable command",
+      "passed": false,
+      "evidence": "The response provides a runnable command immediately (lines 7-9: `uv run duocli auth-logs --days 7 --result deny`) before any mention of credentials. Credentials are only addressed in a 'Prerequisites' section near the bottom (lines 38-47), well after the commands have already been given."
+    },
+    {
+      "text": "uses_auth_logs_command: Response mentions the auth-logs command",
+      "passed": true,
+      "evidence": "The response prominently uses the `auth-logs` command in multiple code blocks: `uv run duocli auth-logs --days 7 --result deny` and `uv run duocli --human auth-logs --days 7 --result deny`."
+    },
+    {
+      "text": "uses_since_7d: Response includes --since 7d time window",
+      "passed": false,
+      "evidence": "The response uses `--days 7` as the time window flag rather than `--since 7d`. None of the command examples in the response include the `--since 7d` form."
+    },
+    {
+      "text": "filters_for_failures: Response includes filtering or mention of FAILURE results",
+      "passed": true,
+      "evidence": "The response filters for failures using `--result deny` in all command examples, and explicitly mentions result values `DENY` and `FRAUD` in the output fields description, along with failure reasons like `user_disabled`, `user_cancelled`, and `deny_unenrolled_user`."
+    }
+  ],
+  "summary": {
+    "passed": 2,
+    "failed": 2,
+    "total": 4,
+    "pass_rate": 0.5
+  }
+}

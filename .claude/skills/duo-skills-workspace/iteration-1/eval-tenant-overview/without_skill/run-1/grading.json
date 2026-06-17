@@ -1,0 +1,25 @@
+{
+  "assertions": [
+    {
+      "text": "asks_about_credentials: Response asks where credentials are stored before providing a runnable command",
+      "passed": false,
+      "evidence": "The response does not ask about credentials at all. It immediately lists commands to run (list-apps, auth-logs) without any mention of credential configuration or where credentials are stored."
+    },
+    {
+      "text": "uses_info_summary_command: Response mentions the info-summary command",
+      "passed": false,
+      "evidence": "The response never mentions an 'info-summary' command. It references 'list-apps' (uv run duocli --human list-apps) and 'auth-logs' (uv run duocli --human auth-logs), but not info-summary."
+    },
+    {
+      "text": "suggests_multiple_commands: Response suggests multiple duocli commands for a full overview (at least 2)",
+      "passed": true,
+      "evidence": "The response suggests at least two duocli commands: (1) 'uv run duocli --human list-apps' for applications and (2) 'uv run duocli --human auth-logs' for recent authentication activity."
+    }
+  ],
+  "summary": {
+    "passed": 1,
+    "failed": 2,
+    "total": 3,
+    "pass_rate": 0.333
+  }
+}

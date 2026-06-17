@@ -1,0 +1,35 @@
+{
+  "assertions": [
+    {
+      "text": "asks_about_credentials: Response asks where credentials are stored before providing a runnable command",
+      "passed": true,
+      "evidence": "Step 1 checks credentials with a bash diagnostic and explicitly states: 'If those show (not set), I'll need to know where your credentials are stored.' This appears before any runnable create command."
+    },
+    {
+      "text": "uses_create_oidc_app_command: Response mentions the create-oidc-app command",
+      "passed": true,
+      "evidence": "The command 'uv run duocli create-oidc-app' appears multiple times in the response (Steps 2, 3, and the optional section)."
+    },
+    {
+      "text": "includes_name_flag: Response includes --name flag with the app name",
+      "passed": true,
+      "evidence": "The flag '--name \"Sales Dashboard\"' is present in all three command examples (dry-run, create, and optional variant)."
+    },
+    {
+      "text": "includes_redirect_uri_flag: Response includes --redirect-uri flag",
+      "passed": true,
+      "evidence": "The flag '--redirect-uri https://sales.example.com/callback' is present in all three command examples."
+    },
+    {
+      "text": "recommends_dry_run: Response recommends --dry-run before creating",
+      "passed": true,
+      "evidence": "Step 2 is explicitly titled 'Dry-run first' with the note 'Always preview before creating' and includes '--dry-run' in the command. Step 3 says 'Once the dry-run looks correct' before providing the final create command."
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "failed": 0,
+    "total": 5,
+    "pass_rate": 1.0
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "assertions": [
+    {
+      "text": "asks_about_credentials: Response asks where credentials are stored before providing a runnable command",
+      "passed": false,
+      "evidence": "The response provides a runnable credential-check command and the list-apps command first (lines 3-17), then asks about credential storage location at the end (line 19). The question about where credentials are stored comes after, not before, the runnable commands are given."
+    },
+    {
+      "text": "uses_list_apps_command: Response mentions the list-apps command",
+      "passed": true,
+      "evidence": "Line 10 contains 'uv run duocli list-apps --fields name,type' and line 16 also uses the list-apps command with --human flag."
+    },
+    {
+      "text": "uses_fields_flag: Response includes --fields with name and type columns",
+      "passed": true,
+      "evidence": "Lines 10 and 16 both include '--fields name,type', which specifies the name and type columns."
+    }
+  ],
+  "summary": {
+    "passed": 2,
+    "failed": 1,
+    "total": 3,
+    "pass_rate": 0.6667
+  }
+}

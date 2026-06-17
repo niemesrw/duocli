@@ -1,0 +1,20 @@
+{
+  "eval_id": 6,
+  "eval_name": "list-policies",
+  "skill": "duo-health",
+  "prompt": "what policies are configured in duo",
+  "assertions": [
+    {
+      "text": "asks_about_credentials: Response asks where credentials are stored before providing a runnable command",
+      "check": "grep -i -E '(where|how).*(credential|secret|key|stored|aws|1password|env)' response.md || grep -i -E '(credential|DUO_IKEY|DUO_SKEY).*(set|stored|configured)' response.md"
+    },
+    {
+      "text": "uses_list_policies_command: Response mentions the list-policies command",
+      "check": "grep -i 'list-policies' response.md"
+    },
+    {
+      "text": "uses_human_flag: Response includes --human flag for readable output",
+      "check": "grep -i '\\-\\-human' response.md"
+    }
+  ]
+}

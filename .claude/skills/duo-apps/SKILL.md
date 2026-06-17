@@ -11,6 +11,48 @@ description: |
 
 Use duocli to manage Duo integrations (applications).
 
+## Credentials
+
+**Credentials first — do not show any runnable duocli commands until this step is complete.**
+
+Check whether the required env vars are already set:
+
+```bash
+echo "IKEY=${DUO_IKEY:+(set)}${DUO_IKEY:-(not set)}  SKEY=${DUO_SKEY:+(set)}${DUO_SKEY:-(not set)}  HOST=${DUO_HOST:-(not set)}"
+```
+
+If any value is `(not set)`, stop and ask the user: **"Where are your Duo Admin API credentials stored?"** Do not proceed to the task or show commands until credentials are loaded. Common options:
+
+### AWS Secrets Manager
+
+Ask for the AWS profile and secret name/ARN, then load:
+
+```bash
+SECRET=$(aws secretsmanager get-secret-value \
+  --secret-id <secret-name-or-arn> \
+  --profile <aws-profile> \
+  --query SecretString --output text)
+export DUO_IKEY=$(echo "$SECRET" | jq -r '.DUO_IKEY // .ikey')
+export DUO_SKEY=$(echo "$SECRET" | jq -r '.DUO_SKEY // .skey')
+export DUO_HOST=$(echo "$SECRET" | jq -r '.DUO_HOST // .host')
+```
+
+### 1Password CLI
+
+Ask for the vault, item name, and field names, then load:
+
+```bash
+export DUO_IKEY=$(op read "op://<vault>/<item>/DUO_IKEY")
+export DUO_SKEY=$(op read "op://<vault>/<item>/DUO_SKEY")
+export DUO_HOST=$(op read "op://<vault>/<item>/DUO_HOST")
+```
+
+### Environment / .env file
+
+Remind the user to set `DUO_IKEY`, `DUO_SKEY`, and `DUO_HOST` — see `.env.example` for the expected format. Never edit `.env` directly through Claude (the hook blocks it).
+
+After loading, confirm with a quick `echo $DUO_HOST` before proceeding.
+
 ## Commands
 
 | Command | Purpose | Key options |
@@ -26,36 +68,36 @@ Use duocli to manage Duo integrations (applications).
 
 ### List all apps
 ```bash
-uv run duo --human list-apps
-uv run duo list-apps --fields name,type,integration_key
+uv run duocli --human list-apps
+uv run duocli list-apps --fields name,type,integration_key
 ```
 
 ### Inspect a specific app
 ```bash
-uv run duo --human get-app --ikey DIXXXXXXXXXXXXXXXXXX
+uv run duocli --human get-app --ikey DIXXXXXXXXXXXXXXXXXX
 ```
 
 ### Create a new app
 
 **Simple types** (websdk, adminapi):
 ```bash
-uv run duo create-app --name "My App" --type websdk
-uv run duo create-app --name "My App" --type websdk --dry-run
+uv run duocli create-app --name "My App" --type websdk
+uv run duocli create-app --name "My App" --type websdk --dry-run
 ```
 
 **OIDC / SSO apps** — use the dedicated `create-oidc-app` command:
 
 ```bash
 # Basic — authorization_code grant with openid/email/profile scopes
-uv run duo create-oidc-app --name "My App" --redirect-uri https://myapp.example.com/callback
+uv run duocli create-oidc-app --name "My App" --redirect-uri https://myapp.example.com/callback
 
 # M2M + interactive — multiple grant types, restricted access
-uv run duo create-oidc-app --name "Agent App" --redirect-uri https://agent.example.com/cb \
+uv run duocli create-oidc-app --name "Agent App" --redirect-uri https://agent.example.com/cb \
     --grant-type authorization_code --grant-type client_credentials \
     --user-access PERMITTED_GROUPS
 
 # Dry-run first
-uv run duo create-oidc-app --name "My App" --redirect-uri https://myapp.example.com/callback --dry-run
+uv run duocli create-oidc-app --name "My App" --redirect-uri https://myapp.example.com/callback --dry-run
 ```
 
 Defaults: `authorization_code` grant, `openid`/`email`/`profile` scopes with common IdP→claim mappings (`mail`→`email`, `displayname`→`name`), `ALL_USERS` access, JIT provisioning. PKCE is enforced by Duo at the policy level.
@@ -67,27 +109,27 @@ Defaults: `authorization_code` grant, `openid`/`email`/`profile` scopes with com
 **After creation** — derive the issuer URL from the integration key:
 ```
 duo_issuer_url = https://<sso-host>/oidc/<integration_key>
-# e.g. https://sso-e8704f1a.sso.duosecurity.com/oidc/DI6PKF2255QAV2PQEM3A
+# e.g. https://sso-XXXXXXXX.sso.duosecurity.com/oidc/DIXXXXXXXXXXXXXXXXXX
 ```
 (The SSO host is account-wide — check an existing app or the Duo Admin Panel to find yours.)
 
 ### Update an app
 ```bash
 # Change name
-uv run duo update-app --ikey DIXXXXXXXXXXXXXXXXXX --json '{"name": "New Name"}'
+uv run duocli update-app --ikey DIXXXXXXXXXXXXXXXXXX --json '{"name": "New Name"}'
 
 # Multiple fields
-uv run duo update-app --ikey DIXXXXXXXXXXXXXXXXXX --json '{"name": "New Name", "notes": "Updated"}'
+uv run duocli update-app --ikey DIXXXXXXXXXXXXXXXXXX --json '{"name": "New Name", "notes": "Updated"}'
 
 # Dry-run to see what would change
-uv run duo update-app --ikey DIXXXXXXXXXXXXXXXXXX --json '{"name": "New Name"}' --dry-run
+uv run duocli update-app --ikey DIXXXXXXXXXXXXXXXXXX --json '{"name": "New Name"}' --dry-run
 ```
 
 ### Delete an app
 ```bash
 # Always dry-run first for destructive operations
-uv run duo delete-app --ikey DIXXXXXXXXXXXXXXXXXX --dry-run
-uv run duo delete-app --ikey DIXXXXXXXXXXXXXXXXXX
+uv run duocli delete-app --ikey DIXXXXXXXXXXXXXXXXXX --dry-run
+uv run duocli delete-app --ikey DIXXXXXXXXXXXXXXXXXX
 ```
 
 ## Allowed Update Keys

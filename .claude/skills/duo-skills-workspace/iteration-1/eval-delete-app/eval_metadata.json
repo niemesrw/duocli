@@ -1,0 +1,24 @@
+{
+  "eval_id": 1,
+  "eval_name": "delete-app",
+  "skill": "duo-apps",
+  "prompt": "delete the duo app with key DI1234567890ABCDEF",
+  "assertions": [
+    {
+      "text": "asks_about_credentials: Response asks where credentials are stored before providing a runnable command",
+      "check": "grep -i -E '(where|how).*(credential|secret|key|stored|aws|1password|env)' response.md || grep -i -E '(credential|DUO_IKEY|DUO_SKEY).*(set|stored|configured)' response.md"
+    },
+    {
+      "text": "uses_delete_app_command: Response mentions the delete-app command",
+      "check": "grep -i 'delete-app' response.md"
+    },
+    {
+      "text": "recommends_dry_run_before_delete: Response recommends --dry-run before the destructive delete",
+      "check": "grep -i '\\-\\-dry-run' response.md"
+    },
+    {
+      "text": "includes_ikey_flag: Response includes --ikey flag",
+      "check": "grep -i '\\-\\-ikey' response.md"
+    }
+  ]
+}

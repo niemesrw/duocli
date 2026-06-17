@@ -1,0 +1,24 @@
+{
+  "eval_id": 3,
+  "eval_name": "failed-auths",
+  "skill": "duo-audit",
+  "prompt": "show me all failed duo authentications from the last 7 days",
+  "assertions": [
+    {
+      "text": "asks_about_credentials: Response asks where credentials are stored before providing a runnable command",
+      "check": "grep -i -E '(where|how).*(credential|secret|key|stored|aws|1password|env)' response.md || grep -i -E '(credential|DUO_IKEY|DUO_SKEY).*(set|stored|configured)' response.md"
+    },
+    {
+      "text": "uses_auth_logs_command: Response mentions the auth-logs command",
+      "check": "grep -i 'auth-logs' response.md"
+    },
+    {
+      "text": "uses_since_7d: Response includes --since 7d time window",
+      "check": "grep -i '\\-\\-since 7d\\|\\-\\-since=7d' response.md"
+    },
+    {
+      "text": "filters_for_failures: Response includes filtering or mention of FAILURE results",
+      "check": "grep -i -E 'FAILURE|failed|filter' response.md"
+    }
+  ]
+}

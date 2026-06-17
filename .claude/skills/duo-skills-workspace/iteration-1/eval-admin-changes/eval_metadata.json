@@ -1,0 +1,20 @@
+{
+  "eval_id": 4,
+  "eval_name": "admin-changes",
+  "skill": "duo-audit",
+  "prompt": "what did admins change in duo this week",
+  "assertions": [
+    {
+      "text": "asks_about_credentials: Response asks where credentials are stored before providing a runnable command",
+      "check": "grep -i -E '(where|how).*(credential|secret|key|stored|aws|1password|env)' response.md || grep -i -E '(credential|DUO_IKEY|DUO_SKEY).*(set|stored|configured)' response.md"
+    },
+    {
+      "text": "uses_admin_logs_command: Response mentions the admin-logs command",
+      "check": "grep -i 'admin-logs' response.md"
+    },
+    {
+      "text": "uses_since_7d_for_week: Response includes --since 7d for the past week window",
+      "check": "grep -i '\\-\\-since 7d\\|\\-\\-since=7d' response.md"
+    }
+  ]
+}

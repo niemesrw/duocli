@@ -1,0 +1,20 @@
+{
+  "eval_id": 2,
+  "eval_name": "list-apps-with-fields",
+  "skill": "duo-apps",
+  "prompt": "list all our duo integrations and show the name and type",
+  "assertions": [
+    {
+      "text": "asks_about_credentials: Response asks where credentials are stored before providing a runnable command",
+      "check": "grep -i -E '(where|how).*(credential|secret|key|stored|aws|1password|env)' response.md || grep -i -E '(credential|DUO_IKEY|DUO_SKEY).*(set|stored|configured)' response.md"
+    },
+    {
+      "text": "uses_list_apps_command: Response mentions the list-apps command",
+      "check": "grep -i 'list-apps' response.md"
+    },
+    {
+      "text": "uses_fields_flag: Response includes --fields with name and type columns",
+      "check": "grep -i '\\-\\-fields.*name.*type\\|\\-\\-fields.*type.*name' response.md"
+    }
+  ]
+}

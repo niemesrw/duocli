@@ -137,6 +137,150 @@ class DirectBackend(DuoBackend):
             "type": result.get("type", ""),
         }
 
+    def get_user(self, username: str | None = None, user_id: str | None = None) -> dict:
+        try:
+            if user_id:
+                result = self._admin.get_user_by_id(user_id)
+            else:
+                results = self._admin.get_users_by_name(username)
+                if not results:
+                    return {"status": "error", "message": f"No user found with username: {username}", "code": 40400}
+                result = results[0]
+        except RuntimeError as exc:
+            return {"status": "error", "message": str(exc), "code": 50000}
+        return {
+            "user_id": result.get("user_id", ""),
+            "username": result.get("username", ""),
+            "email": result.get("email", ""),
+            "realname": result.get("realname", ""),
+            "status": result.get("status", ""),
+            "is_enrolled": result.get("is_enrolled", False),
+            "last_login": _format_ts_sec(result.get("last_login")),
+            "phones_count": len(result.get("phones", [])),
+            "groups_count": len(result.get("groups", [])),
+            "notes": result.get("notes", ""),
+        }
+
+    def get_user_groups(self, user_id: str) -> list[dict]:
+        try:
+            results = self._admin.get_user_groups(user_id)
+        except RuntimeError as exc:
+            return [{"status": "error", "message": str(exc), "code": 50000}]
+        return [
+            {
+                "group_id": g.get("group_id", ""),
+                "name": g.get("name", ""),
+                "description": g.get("desc", ""),
+                "status": g.get("status", ""),
+            }
+            for g in results
+        ]
+
+    def get_user_devices(self, user_id: str) -> dict:
+        try:
+            phones = self._admin.get_user_phones(user_id)
+            tokens = self._admin.get_user_tokens(user_id)
+            webauthn = self._admin.get_user_webauthncredentials(user_id)
+        except RuntimeError as exc:
+            return {"status": "error", "message": str(exc), "code": 50000}
+        phone_list = [
+            {
+                "type": "phone",
+                "device_id": p.get("phone_id", ""),
+                "name": p.get("name", ""),
+                "number": p.get("number", ""),
+                "platform": p.get("platform", ""),
+                "activated": p.get("activated", False),
+            }
+            for p in phones
+        ]
+        token_list = [
+            {
+                "type": "token",
+                "device_id": t.get("token_id", ""),
+                "serial": t.get("serial", ""),
+                "token_type": t.get("type", ""),
+            }
+            for t in tokens
+        ]
+        webauthn_list = [
+            {
+                "type": "webauthn",
+                "credential_name": w.get("credential_name", ""),
+                "date_added": _format_ts_sec(w.get("date_added")),
+                "label": w.get("label", ""),
+            }
+            for w in webauthn
+        ]
+        all_devices = phone_list + token_list + webauthn_list
+        return {
+            "user_id": user_id,
+            "phones": phone_list,
+            "tokens": token_list,
+            "webauthn": webauthn_list,
+            "total_devices": len(all_devices),
+        }
+
+    def calculate_policy(self, integration_key: str, user_id: str) -> dict:
+        try:
+            result = self._admin.calculate_policy(integration_key, user_id)
+        except RuntimeError as exc:
+            return {"status": "error", "message": str(exc), "code": 50000}
+        return result
+
+    def enroll_user(self, username: str, email: str, valid_secs: int | None = None) -> dict:
+        try:
+            kwargs = {"username": username, "email": email}
+            if valid_secs is not None:
+                kwargs["valid_secs"] = valid_secs
+            result = self._admin.enroll_user(**kwargs)
+        except RuntimeError as exc:
+            return {"status": "error", "message": str(exc), "code": 50000}
+        # API returns a string (enrollment code) or a dict with enrollment_url
+        if isinstance(result, dict):
+            enrollment_code = result.get("enrollment_code", "")
+            enrollment_url = result.get("enrollment_url", "")
+        else:
+            enrollment_code = str(result) if result else ""
+            enrollment_url = ""
+        return {
+            "status": "ok",
+            "username": username,
+            "email": email,
+            "enrollment_code": enrollment_code,
+            "enrollment_url": enrollment_url,
+        }
+
+    def send_sms_activation(self, user_id: str, valid_secs: int | None = None) -> dict:
+        try:
+            phones = self._admin.get_user_phones(user_id)
+        except RuntimeError as exc:
+            return {"status": "error", "message": str(exc), "code": 50000}
+        if not phones:
+            return {
+                "status": "error",
+                "message": f"User {user_id} has no phones — add a phone before sending SMS activation",
+                "code": 40400,
+            }
+        phone = phones[0]
+        phone_id = phone.get("phone_id", "")
+        try:
+            kwargs: dict = {"install": 1}
+            if valid_secs is not None:
+                kwargs["valid_secs"] = valid_secs
+            result = self._admin.send_sms_activation_to_phone(phone_id, **kwargs)
+        except RuntimeError as exc:
+            return {"status": "error", "message": str(exc), "code": 50000}
+        return {
+            "status": "ok",
+            "user_id": user_id,
+            "phone_id": phone_id,
+            "number": phone.get("number", ""),
+            "activation_msg": result.get("activation_msg", "") if isinstance(result, dict) else "",
+            "installation_msg": result.get("installation_msg", "") if isinstance(result, dict) else "",
+            "valid_secs": result.get("valid_secs", "") if isinstance(result, dict) else "",
+        }
+
     def get_activity_logs(
         self, mintime: int, maxtime: int, limit: int = 500,
     ) -> list[dict]:
